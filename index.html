@@ -37,7 +37,7 @@
   .container { width: 100%; max-width: 680px; position: relative; z-index: 1; }
 
   /* Header */
-  .header { text-align: center; margin-bottom: 32px; padding-top: 12px; position: relative; }
+  .header { text-align: center; margin-bottom: 32px; padding-top: 52px; position: relative; }
   .header h1 {
     font-family: 'Space Mono', monospace;
     font-size: clamp(18px, 4vw, 26px); font-weight: 700;
@@ -55,11 +55,21 @@
   }
   .btn-history-toggle:hover { border-color: var(--accent); color: var(--text); }
   .btn-history-toggle.active { border-color: var(--accent); color: var(--accent); background: rgba(108,99,255,0.1); }
+  .btn-settings-toggle {
+    position: absolute; left: 0; top: 10px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 14px;
+    color: var(--muted); font-size: 12px; cursor: pointer;
+    transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif;
+  }
+  .btn-settings-toggle:hover { border-color: var(--accent); color: var(--text); }
+  .btn-settings-toggle.configured { border-color: var(--success); color: var(--success); }
 
   /* Card */
   .card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 16px; padding: 20px; margin-bottom: 12px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
   }
   .card-label {
     font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700;
@@ -73,7 +83,7 @@
     border-radius: 10px; padding: 11px 14px; color: var(--text);
     font-family: 'Space Mono', monospace; font-size: 12px; outline: none; transition: border-color 0.2s;
   }
-  .key-input:focus { border-color: var(--accent); }
+  .key-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108,99,255,0.15); }
   .key-input::placeholder { color: var(--muted); }
   .btn-save {
     background: var(--accent); color: white; border: none; border-radius: 10px;
@@ -91,14 +101,14 @@
     border-radius: 10px; color: var(--muted); font-size: 13px;
     font-family: 'Noto Sans JP', sans-serif; cursor: pointer; text-align: center; transition: all 0.2s;
   }
-  .tab.active { background: rgba(108,99,255,0.2); border-color: var(--accent); color: var(--text); }
+  .tab.active { background: rgba(108,99,255,0.2); border-color: var(--accent); color: var(--text); box-shadow: 0 0 12px rgba(108,99,255,0.15); }
 
   /* Upload */
   .upload-area {
     border: 2px dashed var(--border); border-radius: 12px; padding: 36px 20px;
     text-align: center; cursor: pointer; transition: all 0.2s; position: relative;
   }
-  .upload-area:hover, .upload-area.drag-over { border-color: var(--accent); background: rgba(108,99,255,0.05); }
+  .upload-area:hover, .upload-area.drag-over { border-color: var(--accent); background: rgba(108,99,255,0.07); box-shadow: inset 0 0 30px rgba(108,99,255,0.05), 0 0 0 1px rgba(108,99,255,0.1); }
   .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
   .upload-icon { font-size: 36px; margin-bottom: 10px; display: block; }
   .upload-area h3 { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
@@ -112,7 +122,7 @@
     font-size: 32px; cursor: pointer; transition: all 0.2s;
     display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;
   }
-  .btn-record:hover { background: rgba(108,99,255,0.2); }
+  .btn-record:hover { background: rgba(108,99,255,0.25); box-shadow: 0 0 20px rgba(108,99,255,0.2); }
   .btn-record.recording { border-color: var(--red); background: rgba(239,68,68,0.15); animation: pulse-rec 1.2s ease-in-out infinite; }
   .btn-record.paused { border-color: var(--orange); background: rgba(249,115,22,0.15); animation: none; }
   @keyframes pulse-rec {
@@ -165,7 +175,7 @@
     font-size: 15px; font-weight: 700; font-family: 'Noto Sans JP', sans-serif;
     cursor: pointer; transition: opacity 0.2s, transform 0.1s; margin-bottom: 12px;
   }
-  .btn-start:hover:not(:disabled) { opacity: 0.9; }
+  .btn-start:hover:not(:disabled) { opacity: 0.9; box-shadow: 0 4px 24px rgba(108,99,255,0.45); }
   .btn-start:active:not(:disabled) { transform: scale(0.99); }
   .btn-start:disabled { opacity: 0.35; cursor: not-allowed; }
 
@@ -248,6 +258,7 @@
   .modal {
     background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
     width: 100%; max-width: 640px; max-height: 80vh; overflow-y: auto; padding: 24px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(108,99,255,0.1);
   }
   .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
   .modal-title { font-size: 14px; font-weight: 600; }
@@ -270,6 +281,7 @@
   <div class="header">
     <h1>🎙 MEETING TRANSCRIBE</h1>
     <p>Whisper（文字起こし）+ Claude（要約） · 日本語・タイ語対応</p>
+    <button class="btn-settings-toggle" id="btn-settings" onclick="openSettings()">⚙️ 設定</button>
     <button class="btn-history-toggle" id="btn-hist" onclick="toggleHistory()">📜 履歴</button>
   </div>
 
@@ -277,24 +289,6 @@
   <div class="history-panel card" id="history-panel">
     <div class="card-label">過去の文字起こし履歴</div>
     <div id="history-list"></div>
-  </div>
-
-  <!-- API Keys -->
-  <div class="card">
-    <div class="card-label">OpenAI API Key（Whisper用）</div>
-    <div class="key-row">
-      <input type="password" class="key-input" id="oai-key" placeholder="sk-..." />
-      <button class="btn-save" onclick="saveKey('oai')">保存</button>
-    </div>
-    <div class="key-status" id="oai-status">未設定</div>
-  </div>
-  <div class="card">
-    <div class="card-label">Anthropic API Key（Claude要約用）</div>
-    <div class="key-row">
-      <input type="password" class="key-input" id="ant-key" placeholder="sk-ant-..." />
-      <button class="btn-save" onclick="saveKey('ant')">保存</button>
-    </div>
-    <div class="key-status" id="ant-status">未設定</div>
   </div>
 
   <!-- Audio Input -->
@@ -398,6 +392,33 @@
 
 </div>
 
+<!-- Settings modal -->
+<div class="modal-overlay" id="settings-overlay" onclick="closeSettings(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">⚙️ API キー設定</div>
+      <button class="btn-modal-close" onclick="closeSettings()">✕ 閉じる</button>
+    </div>
+    <div class="modal-section">
+      <div class="modal-label">OpenAI API Key（Whisper 文字起こし用）</div>
+      <div class="key-row">
+        <input type="password" class="key-input" id="oai-key" placeholder="sk-..." />
+        <button class="btn-save" onclick="saveKey('oai')">保存</button>
+      </div>
+      <div class="key-status" id="oai-status">未設定</div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-label">Anthropic API Key（Claude 要約用）</div>
+      <div class="key-row">
+        <input type="password" class="key-input" id="ant-key" placeholder="sk-ant-..." />
+        <button class="btn-save" onclick="saveKey('ant')">保存</button>
+      </div>
+      <div class="key-status" id="ant-status">未設定</div>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin-top:8px">APIキーはこのデバイスのブラウザにのみ保存されます。外部サーバーには送信されません。</p>
+  </div>
+</div>
+
 <!-- History detail modal -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
   <div class="modal">
@@ -434,15 +455,42 @@
       const v = localStorage.getItem(k + '_key');
       if (v) { document.getElementById(k + '-key').value = v; setStatus(k, true); }
     });
+    updateSettingsBtn();
+    // 未設定の場合は初回起動時に設定モーダルを自動で開く
+    if (!localStorage.getItem('oai_key') || !localStorage.getItem('ant_key')) {
+      openSettings();
+    }
     checkReady();
   });
+
+  // Settings modal
+  function openSettings() {
+    document.getElementById('settings-overlay').classList.add('visible');
+  }
+  function closeSettings(e) {
+    if (!e || e.target === document.getElementById('settings-overlay') || !e.target) {
+      document.getElementById('settings-overlay').classList.remove('visible');
+      updateSettingsBtn();
+    }
+  }
+  function updateSettingsBtn() {
+    const btn = document.getElementById('btn-settings');
+    const bothSet = localStorage.getItem('oai_key') && localStorage.getItem('ant_key');
+    if (bothSet) {
+      btn.textContent = '⚙️ 設定済み';
+      btn.classList.add('configured');
+    } else {
+      btn.textContent = '⚙️ 設定';
+      btn.classList.remove('configured');
+    }
+  }
 
   // API Keys
   function saveKey(k) {
     const v = document.getElementById(k + '-key').value.trim();
     if (!v) return;
     localStorage.setItem(k + '_key', v);
-    setStatus(k, true); hideError(); checkReady();
+    setStatus(k, true); hideError(); checkReady(); updateSettingsBtn();
   }
   function setStatus(k, ok) {
     const el = document.getElementById(k + '-status');
