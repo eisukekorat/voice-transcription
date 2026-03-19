@@ -133,6 +133,12 @@
   .btn-pause-rec { background: var(--orange); color: white; }
   .btn-stop-rec { background: var(--red); color: white; }
   .btn-pause-rec:hover, .btn-stop-rec:hover { opacity: 0.85; }
+  .btn-discard {
+    background: none; border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 16px; color: var(--muted); font-size: 12px; cursor: pointer;
+    margin-top: 10px; transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif;
+  }
+  .btn-discard:hover { color: var(--error); border-color: var(--error); }
 
   /* File info */
   .file-info {
@@ -318,6 +324,7 @@
           <button class="btn-pause-rec" id="btn-pause" onclick="togglePause()">⏸ 一時停止</button>
           <button class="btn-stop-rec" onclick="stopRecord()">■ 停止して使用</button>
         </div>
+        <button class="btn-discard" id="btn-discard" onclick="discardRecording()" style="display:none">🗑 録音を破棄</button>
       </div>
     </div>
 
@@ -334,6 +341,7 @@
       <button class="lang-btn" data-lang="ja" onclick="setLang(this)">🇯🇵 日本語</button>
       <button class="lang-btn" data-lang="th" onclick="setLang(this)">🇹🇭 タイ語</button>
       <button class="lang-btn active" data-lang="" onclick="setLang(this)">🇯🇵🇹🇭 ミックス（自動）</button>
+      <button class="lang-btn" data-lang="en" onclick="setLang(this)">🇺🇸 英語</button>
     </div>
   </div>
 
@@ -531,9 +539,15 @@
       document.getElementById('btn-record').textContent = '🎤';
       document.getElementById('rec-label').textContent = '録音完了！使用する準備ができました';
       document.getElementById('rec-controls').classList.remove('visible');
+      document.getElementById('btn-discard').style.display = 'block';
       document.getElementById('rec-timer').classList.remove('paused-color');
       document.getElementById('btn-pause').textContent = '⏸ 一時停止';
     }
+  }
+
+  function discardRecording() {
+    clearRecording();
+    document.getElementById('rec-label').textContent = 'タップして録音開始';
   }
 
   function clearRecording() {
@@ -548,6 +562,7 @@
     document.getElementById('btn-record').classList.remove('recording', 'paused');
     document.getElementById('rec-controls').classList.remove('visible');
     document.getElementById('btn-pause').textContent = '⏸ 一時停止';
+    document.getElementById('btn-discard').style.display = 'none';
     selectedFile = null; document.getElementById('file-info').classList.remove('visible'); checkReady();
   }
 
