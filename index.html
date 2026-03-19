@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>会議文字起こし＋要約</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c26;
+    --border: #2a2a3a;
+    --accent: #6c63ff;
+    --accent2: #ff6b9d;
+    --text: #e8e8f0;
+    --muted: #7070a0;
+    --success: #4ade80;
+    --error: #f87171;
+    --warn: #fbbf24;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -200px; left: 50%;
+    transform: translateX(-50%);
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(108,99,255,0.1) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+
+  .container { width: 100%; max-width: 680px; position: relative; z-index: 1; }
+
+  .header { text-align: center; margin-bottom: 32px; padding-top: 12px; }
+  .header h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(18px, 4vw, 26px);
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+  }
+  .header p { color: var(--muted); font-size: 12px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 12px;
+  }
+
+  .card-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase; letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+
+  .key-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+
+  .key-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 14px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .key-input:focus { border-color: var(--accent); }
+  .key-input::placeholder { color: var(--muted); }
+
+  .btn-save {
+    background: var(--accent); color: white;
+    border: none; border-radius: 10px;
+    padding: 11px 14px;
+    font-size: 11px; font-weight: 700;
+    font-family: 'Space Mono', monospace;
+    cursor: pointer; white-space: nowrap;
+    transition: opacity 0.2s;
+  }
+  .btn-save:hover { opacity: 0.85; }
+
+  .key-status { font-size: 11px; color: var(--muted); }
+  .key-status.ok { color: var(--success); }
+  .key-status.ng { color: var(--error); }
+
+  /* Upload */
+  .upload-area {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .upload-area:hover, .upload-area.drag-over {
+    border-color: var(--accent);
+    background: rgba(108,99,255,0.05);
+  }
+  .upload-area input[type="file"] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+  }
+  .upload-icon { font-size: 36px; margin-bottom: 10px; display: block; }
+  .upload-area h3 { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+  .upload-area p { font-size: 12px; color: var(--muted); }
+
+  .file-info {
+    margin-top: 12px;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+  }
+  .file-info.visible { display: flex; }
+  .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Language */
+  .lang-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .lang-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .lang-btn.active {
+    background: rgba(108,99,255,0.2);
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  /* Main button */
+  .btn-start {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white; border: none; border-radius: 12px;
+    padding: 16px;
+    font-size: 15px; font-weight: 700;
+    font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    margin-bottom: 12px;
+  }
+  .btn-start:hover:not(:disabled) { opacity: 0.9; }
+  .btn-start:active:not(:disabled) { transform: scale(0.99); }
+  .btn-start:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Steps */
+  .steps { margin-bottom: 12px; display: none; }
+  .steps.visible { display: block; }
+
+  .step {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    transition: all 0.3s;
+  }
+  .step.active { border-color: var(--accent); background: rgba(108,99,255,0.08); }
+  .step.done { border-color: var(--success); background: rgba(74,222,128,0.06); }
+  .step.error { border-color: var(--error); background: rgba(248,113,113,0.06); }
+
+  .step-icon { font-size: 18px; flex-shrink: 0; width: 24px; text-align: center; }
+  .step-text { flex: 1; }
+  .step-label { font-weight: 500; }
+  .step-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(108,99,255,0.3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Results */
+  .results { display: none; }
+  .results.visible { display: block; }
+
+  .result-section { margin-bottom: 12px; }
+
+  .result-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  .result-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  .result-body {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    font-size: 14px; line-height: 1.8;
+    white-space: pre-wrap; word-break: break-word;
+    max-height: 320px; overflow-y: auto;
+  }
+  .result-body::-webkit-scrollbar { width: 4px; }
+  .result-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .btn-copy {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 6px 14px;
+    color: var(--text); font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .btn-copy:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-copy.copied { border-color: var(--success); color: var(--success); }
+
+  .btn-reset {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    color: var(--muted); font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 4px;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .btn-reset:hover { color: var(--error); border-color: var(--error); }
+
+  /* Error */
+  .error-box {
+    background: rgba(248,113,113,0.1);
+    border: 1px solid rgba(248,113,113,0.3);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px; color: var(--error);
+    margin-bottom: 12px;
+    display: none;
+  }
+  .error-box.visible { display: block; }
+
+  /* Notice */
+  .notice {
+    background: rgba(251,191,36,0.08);
+    border: 1px solid rgba(251,191,36,0.25);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px; color: var(--warn);
+    margin-bottom: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>🎙 MEETING TRANSCRIBE</h1>
+    <p>Whisper（文字起こし）+ Claude（要約） · 日本語・タイ語対応</p>
+  </div>
+
+  <!-- OpenAI Key -->
+  <div class="card">
+    <div class="card-label">OpenAI API Key（Whisper用）</div>
+    <div class="key-row">
+      <input type="password" class="key-input" id="oai-key" placeholder="sk-..." />
+      <button class="btn-save" onclick="saveKey('oai')">保存</button>
+    </div>
+    <div class="key-status" id="oai-status">未設定</div>
+  </div>
+
+  <!-- Anthropic Key -->
+  <div class="card">
+    <div class="card-label">Anthropic API Key（Claude要約用）</div>
+    <div class="key-row">
+      <input type="password" class="key-input" id="ant-key" placeholder="sk-ant-..." />
+      <button class="btn-save" onclick="saveKey('ant')">保存</button>
+    </div>
+    <div class="key-status" id="ant-status">未設定</div>
+  </div>
+
+  <!-- File -->
+  <div class="card">
+    <div class="card-label">音声ファイル</div>
+    <div class="upload-area" id="upload-area">
+      <input type="file" id="file-input" accept="*/*" onchange="onFile(event)" />
+      <span class="upload-icon">🎵</span>
+      <h3>タップしてファイルを選択</h3>
+      <p>m4a · mp3 · wav · mp4 など対応（最大25MB）</p>
+    </div>
+    <div class="file-info" id="file-info">
+      <span>🎧</span>
+      <span class="file-name" id="file-name"></span>
+    </div>
+  </div>
+
+  <!-- Language -->
+  <div class="card">
+    <div class="card-label">言語設定</div>
+    <div class="lang-row">
+      <button class="lang-btn" data-lang="ja" onclick="setLang(this)">🇯🇵 日本語</button>
+      <button class="lang-btn" data-lang="th" onclick="setLang(this)">🇹🇭 タイ語</button>
+      <button class="lang-btn active" data-lang="" onclick="setLang(this)">🇯🇵🇹🇭 ミックス（自動）</button>
+      <button class="lang-btn" data-lang="en" onclick="setLang(this)">🇺🇸 英語</button>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="error-box"></div>
+
+  <!-- Button -->
+  <button class="btn-start" id="btn-start" onclick="start()" disabled>
+    文字起こし＋要約を開始
+  </button>
+
+  <!-- Steps -->
+  <div class="steps" id="steps">
+    <div class="step" id="step-upload">
+      <span class="step-icon">📤</span>
+      <div class="step-text">
+        <div class="step-label">Whisperへ送信中</div>
+        <div class="step-sub">音声ファイルをアップロードしています</div>
+      </div>
+    </div>
+    <div class="step" id="step-transcribe">
+      <span class="step-icon">✍️</span>
+      <div class="step-text">
+        <div class="step-label">文字起こし中</div>
+        <div class="step-sub">Whisper APIが音声を解析しています</div>
+      </div>
+    </div>
+    <div class="step" id="step-summarize">
+      <span class="step-icon">🤖</span>
+      <div class="step-text">
+        <div class="step-label">Claude が要約中</div>
+        <div class="step-sub">議事録を作成しています</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+    <!-- Summary -->
+    <div class="card result-section">
+      <div class="result-header">
+        <span class="result-title">📋 要約・議事録</span>
+        <button class="btn-copy" onclick="copy('summary-text', this)">コピー</button>
+      </div>
+      <div class="result-body" id="summary-text"></div>
+    </div>
+
+    <!-- Transcript -->
+    <div class="card result-section">
+      <div class="result-header">
+        <span class="result-title">📝 文字起こし原文</span>
+        <button class="btn-copy" onclick="copy('transcript-text', this)">コピー</button>
+      </div>
+      <div class="result-body" id="transcript-text"></div>
+    </div>
+
+    <button class="btn-reset" onclick="reset()">✕ リセットして最初から</button>
+  </div>
+
+</div>
+
+<script>
+  let selectedFile = null;
+  let selectedLang = '';
+
+  // Load saved keys
+  window.addEventListener('load', () => {
+    ['oai', 'ant'].forEach(k => {
+      const val = localStorage.getItem(k + '_key');
+      if (val) {
+        document.getElementById(k + '-key').value = val;
+        setStatus(k, true);
+      }
+    });
+    checkReady();
+  });
+
+  function saveKey(k) {
+    const val = document.getElementById(k + '-key').value.trim();
+    if (!val) { setStatus(k, false, '入力してください'); return; }
+    localStorage.setItem(k + '_key', val);
+    setStatus(k, true);
+    hideError();
+    checkReady();
+  }
+
+  function setStatus(k, ok, msg) {
+    const el = document.getElementById(k + '-status');
+    if (ok) {
+      el.textContent = '✓ 保存済み';
+      el.className = 'key-status ok';
+    } else {
+      el.textContent = msg || '未設定';
+      el.className = 'key-status ng';
+    }
+  }
+
+  function setLang(btn) {
+    document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedLang = btn.dataset.lang;
+  }
+
+  function onFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setFile(file);
+  }
+
+  function setFile(file) {
+    selectedFile = file;
+    document.getElementById('file-info').classList.add('visible');
+    document.getElementById('file-name').textContent =
+      file.name + '（' + (file.size / 1024 / 1024).toFixed(1) + ' MB）';
+    hideError();
+    checkReady();
+  }
+
+  // Drag & drop
+  const uploadArea = document.getElementById('upload-area');
+  uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
+  uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+  uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadArea.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+
+  function checkReady() {
+    const oai = localStorage.getItem('oai_key');
+    const ant = localStorage.getItem('ant_key');
+    const ready = oai && ant && selectedFile;
+    document.getElementById('btn-start').disabled = !ready;
+  }
+
+  function setStep(id, state) {
+    // state: 'active' | 'done' | 'error' | ''
+    const el = document.getElementById(id);
+    el.className = 'step' + (state ? ' ' + state : '');
+    const iconEl = el.querySelector('.step-icon');
+    if (state === 'active') {
+      el.querySelector('.step-text').insertAdjacentHTML('beforeend',
+        '<div id="' + id + '-spinner" class="spinner" style="position:absolute;right:16px"></div>');
+      el.style.position = 'relative';
+    }
+    if (state === 'done') iconEl.textContent = '✅';
+    if (state === 'error') iconEl.textContent = '❌';
+  }
+
+  async function start() {
+    const oaiKey = localStorage.getItem('oai_key');
+    const antKey = localStorage.getItem('ant_key');
+    if (!oaiKey || !antKey || !selectedFile) return;
+
+    if (selectedFile.size > 25 * 1024 * 1024) {
+      showError('ファイルサイズが25MBを超えています。Whisperの上限は25MBです。');
+      return;
+    }
+
+    hideError();
+    document.getElementById('btn-start').disabled = true;
+    document.getElementById('steps').classList.add('visible');
+    document.getElementById('results').classList.remove('visible');
+
+    // Reset steps
+    ['step-upload', 'step-transcribe', 'step-summarize'].forEach(id => {
+      const el = document.getElementById(id);
+      el.className = 'step';
+      el.querySelector('.step-icon').textContent =
+        id === 'step-upload' ? '📤' : id === 'step-transcribe' ? '✍️' : '🤖';
+    });
+
+    let transcript = '';
+
+    try {
+      // Step 1: Upload + Transcribe
+      setStep('step-upload', 'active');
+      setStep('step-transcribe', 'active');
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('model', 'whisper-1');
+      if (selectedLang) formData.append('language', selectedLang);
+      formData.append('response_format', 'text');
+
+      const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + oaiKey },
+        body: formData
+      });
+
+      if (!whisperRes.ok) {
+        let errMsg = 'Whisper APIエラー: ' + whisperRes.status;
+        try { const e = await whisperRes.json(); errMsg = e.error?.message || errMsg; } catch {}
+        throw new Error(errMsg);
+      }
+
+      transcript = await whisperRes.text();
+      setStep('step-upload', 'done');
+      setStep('step-transcribe', 'done');
+
+      // Step 2: Summarize with Claude
+      setStep('step-summarize', 'active');
+
+      const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': antKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1024,
+          messages: [{
+            role: 'user',
+            content: `以下は会議の文字起こしです（日本語・タイ語混在の可能性あり）。
+議事録として以下の形式でまとめてください：
+
+【会議の概要】
+（2〜3文で内容を要約）
+
+【主な議題・決定事項】
+・
+・
+
+【アクションアイテム】
+・
+
+【その他メモ】
+（必要あれば）
+
+---文字起こし---
+${transcript}`
+          }]
+        })
+      });
+
+      if (!claudeRes.ok) {
+        let errMsg = 'Claude APIエラー: ' + claudeRes.status;
+        try { const e = await claudeRes.json(); errMsg = e.error?.message || errMsg; } catch {}
+        throw new Error(errMsg);
+      }
+
+      const claudeData = await claudeRes.json();
+      const summary = claudeData.content[0].text;
+      setStep('step-summarize', 'done');
+
+      // Show results
+      document.getElementById('transcript-text').textContent = transcript;
+      document.getElementById('summary-text').textContent = summary;
+      document.getElementById('results').classList.add('visible');
+
+    } catch (err) {
+      ['step-upload', 'step-transcribe', 'step-summarize'].forEach(id => {
+        if (document.getElementById(id).classList.contains('active'))
+          setStep(id, 'error');
+      });
+      showError(err.message);
+      document.getElementById('btn-start').disabled = false;
+    }
+  }
+
+  async function copy(id, btn) {
+    const text = document.getElementById(id).textContent;
+    await navigator.clipboard.writeText(text);
+    btn.textContent = '✓ コピー完了';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'コピー'; btn.classList.remove('copied'); }, 2000);
+  }
+
+  function reset() {
+    selectedFile = null;
+    document.getElementById('file-info').classList.remove('visible');
+    document.getElementById('file-name').textContent = '';
+    document.getElementById('file-input').value = '';
+    document.getElementById('results').classList.remove('visible');
+    document.getElementById('steps').classList.remove('visible');
+    hideError();
+    checkReady();
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-box');
+    el.textContent = '⚠ ' + msg;
+    el.classList.add('visible');
+  }
+
+  function hideError() {
+    document.getElementById('error-box').classList.remove('visible');
+  }
+</script>
+</body>
+</html>
