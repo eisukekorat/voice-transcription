@@ -18,6 +18,7 @@
     --success: #4ade80;
     --error: #f87171;
     --warn: #fbbf24;
+    --red: #ef4444;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -103,7 +104,31 @@
 
   .key-status { font-size: 11px; color: var(--muted); }
   .key-status.ok { color: var(--success); }
-  .key-status.ng { color: var(--error); }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    background: rgba(108,99,255,0.2);
+    border-color: var(--accent);
+    color: var(--text);
+  }
 
   /* Upload */
   .upload-area {
@@ -127,6 +152,56 @@
   .upload-icon { font-size: 36px; margin-bottom: 10px; display: block; }
   .upload-area h3 { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
   .upload-area p { font-size: 12px; color: var(--muted); }
+
+  /* Recording */
+  .record-area { text-align: center; padding: 12px 0; }
+
+  .btn-record {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    border: 3px solid var(--accent);
+    background: rgba(108,99,255,0.1);
+    color: var(--text);
+    font-size: 32px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 12px;
+  }
+  .btn-record:hover { background: rgba(108,99,255,0.2); }
+  .btn-record.recording {
+    border-color: var(--red);
+    background: rgba(239,68,68,0.15);
+    animation: pulse-rec 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse-rec {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+    50% { box-shadow: 0 0 0 12px rgba(239,68,68,0); }
+  }
+
+  .record-label { font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+  .record-timer {
+    font-family: 'Space Mono', monospace;
+    font-size: 22px;
+    color: var(--text);
+    margin-bottom: 12px;
+    display: none;
+  }
+  .record-timer.visible { display: block; }
+
+  .btn-stop-rec {
+    background: var(--red); color: white;
+    border: none; border-radius: 10px;
+    padding: 10px 24px;
+    font-size: 13px; font-weight: 700;
+    font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer;
+    display: none;
+    margin: 0 auto;
+    transition: opacity 0.2s;
+  }
+  .btn-stop-rec.visible { display: block; }
+  .btn-stop-rec:hover { opacity: 0.85; }
 
   .file-info {
     margin-top: 12px;
@@ -199,21 +274,9 @@
   .step-label { font-weight: 500; }
   .step-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-  .spinner {
-    width: 18px; height: 18px;
-    border: 2px solid rgba(108,99,255,0.3);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    flex-shrink: 0;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
   /* Results */
   .results { display: none; }
   .results.visible { display: block; }
-
-  .result-section { margin-bottom: 12px; }
 
   .result-header {
     display: flex; justify-content: space-between; align-items: center;
@@ -271,16 +334,6 @@
     display: none;
   }
   .error-box.visible { display: block; }
-
-  /* Notice */
-  .notice {
-    background: rgba(251,191,36,0.08);
-    border: 1px solid rgba(251,191,36,0.25);
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-size: 12px; color: var(--warn);
-    margin-bottom: 12px;
-  }
 </style>
 </head>
 <body>
@@ -311,17 +364,38 @@
     <div class="key-status" id="ant-status">未設定</div>
   </div>
 
-  <!-- File -->
+  <!-- Audio Input -->
   <div class="card">
-    <div class="card-label">音声ファイル</div>
-    <div class="upload-area" id="upload-area">
-      <input type="file" id="file-input" accept="*/*" onchange="onFile(event)" />
-      <span class="upload-icon">🎵</span>
-      <h3>タップしてファイルを選択</h3>
-      <p>m4a · mp3 · wav · mp4 など対応（最大25MB）</p>
+    <div class="card-label">音声入力</div>
+
+    <div class="tabs">
+      <button class="tab active" id="tab-file" onclick="switchTab('file')">📁 ファイルから選択</button>
+      <button class="tab" id="tab-rec" onclick="switchTab('rec')">🎤 その場で録音</button>
     </div>
+
+    <!-- File upload -->
+    <div id="panel-file">
+      <div class="upload-area" id="upload-area">
+        <input type="file" id="file-input" accept="*/*" onchange="onFile(event)" />
+        <span class="upload-icon">🎵</span>
+        <h3>タップしてファイルを選択</h3>
+        <p>m4a · mp3 · wav · mp4 など対応（最大25MB）</p>
+      </div>
+    </div>
+
+    <!-- Recording -->
+    <div id="panel-rec" style="display:none">
+      <div class="record-area">
+        <div class="record-label" id="rec-label">タップして録音開始</div>
+        <button class="btn-record" id="btn-record" onclick="toggleRecord()">🎤</button>
+        <div class="record-timer" id="rec-timer">00:00</div>
+        <button class="btn-stop-rec" id="btn-stop" onclick="stopRecord()">■ 録音を停止して使用</button>
+      </div>
+    </div>
+
+    <!-- Selected file info -->
     <div class="file-info" id="file-info">
-      <span>🎧</span>
+      <span id="file-icon">🎧</span>
       <span class="file-name" id="file-name"></span>
     </div>
   </div>
@@ -337,10 +411,8 @@
     </div>
   </div>
 
-  <!-- Error -->
   <div class="error-box" id="error-box"></div>
 
-  <!-- Button -->
   <button class="btn-start" id="btn-start" onclick="start()" disabled>
     文字起こし＋要約を開始
   </button>
@@ -372,24 +444,20 @@
 
   <!-- Results -->
   <div class="results" id="results">
-    <!-- Summary -->
-    <div class="card result-section">
+    <div class="card" style="margin-bottom:12px">
       <div class="result-header">
         <span class="result-title">📋 要約・議事録</span>
-        <button class="btn-copy" onclick="copy('summary-text', this)">コピー</button>
+        <button class="btn-copy" onclick="copyResult('summary-text', this)">コピー</button>
       </div>
       <div class="result-body" id="summary-text"></div>
     </div>
-
-    <!-- Transcript -->
-    <div class="card result-section">
+    <div class="card" style="margin-bottom:12px">
       <div class="result-header">
         <span class="result-title">📝 文字起こし原文</span>
-        <button class="btn-copy" onclick="copy('transcript-text', this)">コピー</button>
+        <button class="btn-copy" onclick="copyResult('transcript-text', this)">コピー</button>
       </div>
       <div class="result-body" id="transcript-text"></div>
     </div>
-
     <button class="btn-reset" onclick="reset()">✕ リセットして最初から</button>
   </div>
 
@@ -398,6 +466,10 @@
 <script>
   let selectedFile = null;
   let selectedLang = '';
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let timerInterval = null;
+  let recSeconds = 0;
 
   // Load saved keys
   window.addEventListener('load', () => {
@@ -413,22 +485,27 @@
 
   function saveKey(k) {
     const val = document.getElementById(k + '-key').value.trim();
-    if (!val) { setStatus(k, false, '入力してください'); return; }
+    if (!val) return;
     localStorage.setItem(k + '_key', val);
     setStatus(k, true);
     hideError();
     checkReady();
   }
 
-  function setStatus(k, ok, msg) {
+  function setStatus(k, ok) {
     const el = document.getElementById(k + '-status');
-    if (ok) {
-      el.textContent = '✓ 保存済み';
-      el.className = 'key-status ok';
-    } else {
-      el.textContent = msg || '未設定';
-      el.className = 'key-status ng';
-    }
+    el.textContent = ok ? '✓ 保存済み' : '未設定';
+    el.className = 'key-status' + (ok ? ' ok' : '');
+  }
+
+  function switchTab(tab) {
+    document.getElementById('tab-file').classList.toggle('active', tab === 'file');
+    document.getElementById('tab-rec').classList.toggle('active', tab === 'rec');
+    document.getElementById('panel-file').style.display = tab === 'file' ? 'block' : 'none';
+    document.getElementById('panel-rec').style.display = tab === 'rec' ? 'block' : 'none';
+    // Clear selection when switching
+    if (tab === 'file') clearRecording();
+    else clearFileSelection();
   }
 
   function setLang(btn) {
@@ -437,18 +514,25 @@
     selectedLang = btn.dataset.lang;
   }
 
+  // File upload
   function onFile(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    setFile(file);
+    if (e.target.files[0]) setFile(e.target.files[0], '🎧');
   }
 
-  function setFile(file) {
+  function setFile(file, icon) {
     selectedFile = file;
     document.getElementById('file-info').classList.add('visible');
+    document.getElementById('file-icon').textContent = icon || '🎧';
     document.getElementById('file-name').textContent =
       file.name + '（' + (file.size / 1024 / 1024).toFixed(1) + ' MB）';
     hideError();
+    checkReady();
+  }
+
+  function clearFileSelection() {
+    selectedFile = null;
+    document.getElementById('file-input').value = '';
+    document.getElementById('file-info').classList.remove('visible');
     checkReady();
   }
 
@@ -459,35 +543,81 @@
   uploadArea.addEventListener('drop', e => {
     e.preventDefault();
     uploadArea.classList.remove('drag-over');
-    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0], '🎧');
   });
+
+  // Recording
+  async function toggleRecord() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') return;
+    hideError();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const mimeType = mediaRecorder.mimeType || 'audio/webm';
+        const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
+        const blob = new Blob(audioChunks, { type: mimeType });
+        const file = new File([blob], 'recording.' + ext, { type: mimeType });
+        setFile(file, '🎤');
+      };
+      mediaRecorder.start();
+      recSeconds = 0;
+      updateTimer();
+      timerInterval = setInterval(updateTimer, 1000);
+
+      document.getElementById('btn-record').classList.add('recording');
+      document.getElementById('btn-record').textContent = '🔴';
+      document.getElementById('rec-label').textContent = '録音中...';
+      document.getElementById('rec-timer').classList.add('visible');
+      document.getElementById('btn-stop').classList.add('visible');
+    } catch (e) {
+      showError('マイクへのアクセスが拒否されました。ブラウザの設定でマイクを許可してください。');
+    }
+  }
+
+  function stopRecord() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      clearInterval(timerInterval);
+      document.getElementById('btn-record').classList.remove('recording');
+      document.getElementById('btn-record').textContent = '🎤';
+      document.getElementById('rec-label').textContent = '録音完了！';
+      document.getElementById('btn-stop').classList.remove('visible');
+    }
+  }
+
+  function clearRecording() {
+    stopRecord();
+    selectedFile = null;
+    recSeconds = 0;
+    document.getElementById('rec-timer').classList.remove('visible');
+    document.getElementById('rec-timer').textContent = '00:00';
+    document.getElementById('rec-label').textContent = 'タップして録音開始';
+    document.getElementById('btn-record').textContent = '🎤';
+    document.getElementById('file-info').classList.remove('visible');
+    checkReady();
+  }
+
+  function updateTimer() {
+    recSeconds++;
+    const m = String(Math.floor(recSeconds / 60)).padStart(2, '0');
+    const s = String(recSeconds % 60).padStart(2, '0');
+    document.getElementById('rec-timer').textContent = m + ':' + s;
+  }
 
   function checkReady() {
     const oai = localStorage.getItem('oai_key');
     const ant = localStorage.getItem('ant_key');
-    const ready = oai && ant && selectedFile;
-    document.getElementById('btn-start').disabled = !ready;
-  }
-
-  function setStep(id, state) {
-    // state: 'active' | 'done' | 'error' | ''
-    const el = document.getElementById(id);
-    el.className = 'step' + (state ? ' ' + state : '');
-    const iconEl = el.querySelector('.step-icon');
-    if (state === 'active') {
-      el.querySelector('.step-text').insertAdjacentHTML('beforeend',
-        '<div id="' + id + '-spinner" class="spinner" style="position:absolute;right:16px"></div>');
-      el.style.position = 'relative';
-    }
-    if (state === 'done') iconEl.textContent = '✅';
-    if (state === 'error') iconEl.textContent = '❌';
+    document.getElementById('btn-start').disabled = !(oai && ant && selectedFile);
   }
 
   async function start() {
     const oaiKey = localStorage.getItem('oai_key');
     const antKey = localStorage.getItem('ant_key');
     if (!oaiKey || !antKey || !selectedFile) return;
-
     if (selectedFile.size > 25 * 1024 * 1024) {
       showError('ファイルサイズが25MBを超えています。Whisperの上限は25MBです。');
       return;
@@ -497,19 +627,9 @@
     document.getElementById('btn-start').disabled = true;
     document.getElementById('steps').classList.add('visible');
     document.getElementById('results').classList.remove('visible');
-
-    // Reset steps
-    ['step-upload', 'step-transcribe', 'step-summarize'].forEach(id => {
-      const el = document.getElementById(id);
-      el.className = 'step';
-      el.querySelector('.step-icon').textContent =
-        id === 'step-upload' ? '📤' : id === 'step-transcribe' ? '✍️' : '🤖';
-    });
-
-    let transcript = '';
+    resetSteps();
 
     try {
-      // Step 1: Upload + Transcribe
       setStep('step-upload', 'active');
       setStep('step-transcribe', 'active');
 
@@ -526,16 +646,14 @@
       });
 
       if (!whisperRes.ok) {
-        let errMsg = 'Whisper APIエラー: ' + whisperRes.status;
-        try { const e = await whisperRes.json(); errMsg = e.error?.message || errMsg; } catch {}
-        throw new Error(errMsg);
+        let msg = 'Whisper APIエラー: ' + whisperRes.status;
+        try { const e = await whisperRes.json(); msg = e.error?.message || msg; } catch {}
+        throw new Error(msg);
       }
 
-      transcript = await whisperRes.text();
+      const transcript = await whisperRes.text();
       setStep('step-upload', 'done');
       setStep('step-transcribe', 'done');
-
-      // Step 2: Summarize with Claude
       setStep('step-summarize', 'active');
 
       const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -574,33 +692,47 @@ ${transcript}`
       });
 
       if (!claudeRes.ok) {
-        let errMsg = 'Claude APIエラー: ' + claudeRes.status;
-        try { const e = await claudeRes.json(); errMsg = e.error?.message || errMsg; } catch {}
-        throw new Error(errMsg);
+        let msg = 'Claude APIエラー: ' + claudeRes.status;
+        try { const e = await claudeRes.json(); msg = e.error?.message || msg; } catch {}
+        throw new Error(msg);
       }
 
       const claudeData = await claudeRes.json();
-      const summary = claudeData.content[0].text;
       setStep('step-summarize', 'done');
 
-      // Show results
       document.getElementById('transcript-text').textContent = transcript;
-      document.getElementById('summary-text').textContent = summary;
+      document.getElementById('summary-text').textContent = claudeData.content[0].text;
       document.getElementById('results').classList.add('visible');
 
     } catch (err) {
       ['step-upload', 'step-transcribe', 'step-summarize'].forEach(id => {
-        if (document.getElementById(id).classList.contains('active'))
-          setStep(id, 'error');
+        if (document.getElementById(id).classList.contains('active')) setStep(id, 'error');
       });
       showError(err.message);
+    } finally {
       document.getElementById('btn-start').disabled = false;
     }
   }
 
-  async function copy(id, btn) {
-    const text = document.getElementById(id).textContent;
-    await navigator.clipboard.writeText(text);
+  function setStep(id, state) {
+    const el = document.getElementById(id);
+    el.className = 'step' + (state ? ' ' + state : '');
+    const icon = el.querySelector('.step-icon');
+    if (state === 'done') icon.textContent = '✅';
+    if (state === 'error') icon.textContent = '❌';
+  }
+
+  function resetSteps() {
+    document.getElementById('step-upload').className = 'step';
+    document.getElementById('step-upload').querySelector('.step-icon').textContent = '📤';
+    document.getElementById('step-transcribe').className = 'step';
+    document.getElementById('step-transcribe').querySelector('.step-icon').textContent = '✍️';
+    document.getElementById('step-summarize').className = 'step';
+    document.getElementById('step-summarize').querySelector('.step-icon').textContent = '🤖';
+  }
+
+  async function copyResult(id, btn) {
+    await navigator.clipboard.writeText(document.getElementById(id).textContent);
     btn.textContent = '✓ コピー完了';
     btn.classList.add('copied');
     setTimeout(() => { btn.textContent = 'コピー'; btn.classList.remove('copied'); }, 2000);
@@ -608,9 +740,9 @@ ${transcript}`
 
   function reset() {
     selectedFile = null;
-    document.getElementById('file-info').classList.remove('visible');
-    document.getElementById('file-name').textContent = '';
+    clearRecording();
     document.getElementById('file-input').value = '';
+    document.getElementById('file-info').classList.remove('visible');
     document.getElementById('results').classList.remove('visible');
     document.getElementById('steps').classList.remove('visible');
     hideError();
