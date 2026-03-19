@@ -156,6 +156,7 @@
     transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif;
   }
   .lang-btn.active { background: rgba(108,99,255,0.2); border-color: var(--accent); color: var(--text); }
+  .lang-btn-sm { font-size: 11px; padding: 8px 10px; color: var(--muted); opacity: 0.7; }
 
   /* Start button */
   .btn-start {
@@ -338,10 +339,10 @@
   <div class="card">
     <div class="card-label">音声の言語（Whisper用）</div>
     <div class="lang-row">
+      <button class="lang-btn active" data-lang="" onclick="setLang(this)">🇯🇵🇹🇭 ミックス（自動）</button>
       <button class="lang-btn" data-lang="ja" onclick="setLang(this)">🇯🇵 日本語</button>
       <button class="lang-btn" data-lang="th" onclick="setLang(this)">🇹🇭 タイ語</button>
-      <button class="lang-btn active" data-lang="" onclick="setLang(this)">🇯🇵🇹🇭 ミックス（自動）</button>
-      <button class="lang-btn" data-lang="en" onclick="setLang(this)">🇺🇸 英語</button>
+      <button class="lang-btn lang-btn-sm" data-lang="en" onclick="setLang(this)">🇺🇸 EN</button>
     </div>
   </div>
 
