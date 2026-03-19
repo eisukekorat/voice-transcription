@@ -295,12 +295,12 @@
   <div class="card">
     <div class="card-label">音声入力</div>
     <div class="tabs">
-      <button class="tab active" id="tab-file" onclick="switchTab('file')">📁 ファイルから選択</button>
-      <button class="tab" id="tab-rec" onclick="switchTab('rec')">🎤 その場で録音</button>
+      <button class="tab" id="tab-file" onclick="switchTab('file')">📁 ファイルから選択</button>
+      <button class="tab active" id="tab-rec" onclick="switchTab('rec')">🎤 その場で録音</button>
     </div>
 
     <!-- File -->
-    <div id="panel-file">
+    <div id="panel-file" style="display:none">
       <div class="upload-area" id="upload-area">
         <input type="file" id="file-input" accept="*/*" onchange="onFile(event)" />
         <span class="upload-icon">🎵</span>
@@ -310,7 +310,7 @@
     </div>
 
     <!-- Recording -->
-    <div id="panel-rec" style="display:none">
+    <div id="panel-rec">
       <div class="record-area">
         <div class="record-label" id="rec-label">タップして録音開始</div>
         <button class="btn-record" id="btn-record" onclick="toggleRecord()">🎤</button>
