@@ -336,7 +336,8 @@
           <button class="btn-pause-rec" id="btn-pause" onclick="togglePause()">⏸ 一時停止</button>
           <button class="btn-stop-rec" onclick="stopRecord()">■ 停止して使用</button>
         </div>
-        <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px">
+          <button class="btn-pause-rec" id="btn-resume" onclick="resumeRecord()" style="display:none">▶ 続きから録音再開</button>
           <button class="btn-discard" id="btn-save-audio" onclick="saveAudioBackup()" style="display:none">💾 音声を保存</button>
           <button class="btn-discard" id="btn-discard" onclick="discardRecording()" style="display:none">🗑 録音を破棄</button>
         </div>
@@ -489,6 +490,8 @@
   let recSeconds = 0;
   let isPaused = false;
   let recordedSize = 0;
+  let savedChunks = [];
+  let lastDataTime = 0;
 
   // Template prompts
   const TEMPLATES = {
@@ -653,19 +656,23 @@
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunks = [];
       recordedSize = 0;
+      savedChunks = [];
       mediaRecorder = new MediaRecorder(stream);
       mediaRecorder.ondataavailable = e => {
-        if (e.data.size > 0) { audioChunks.push(e.data); recordedSize += e.data.size; updateRecSize(); }
+        if (e.data.size > 0) { audioChunks.push(e.data); recordedSize += e.data.size; updateRecSize(); lastDataTime = Date.now(); }
       };
       mediaRecorder.onstop = () => {
         stream.getTracks().forEach(t => t.stop());
         const mime = mediaRecorder.mimeType || 'audio/webm';
         const ext = mime.includes('mp4') ? 'm4a' : 'webm';
-        const blob = new Blob(audioChunks, { type: mime });
+        const allChunks = [...savedChunks, ...audioChunks];
+        const blob = new Blob(allChunks, { type: mime });
+        savedChunks = [];
         setFile(new File([blob], 'recording.' + ext, { type: mime }), '🎤');
         document.getElementById('btn-save-audio').style.display = 'inline-block';
       };
       mediaRecorder.start(1000);
+      lastDataTime = Date.now();
       recSeconds = 0; isPaused = false;
       updateTimer();
       timerInterval = setInterval(() => { if (!isPaused) { recSeconds++; updateTimer(); } }, 1000);
@@ -719,6 +726,82 @@
     }
   }
 
+  // Background interruption detection
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && mediaRecorder && timerInterval) {
+      setTimeout(() => {
+        if (mediaRecorder && timerInterval && (Date.now() - lastDataTime > 3000)) {
+          handleInterruption();
+        }
+      }, 2000);
+    }
+  });
+
+  function handleInterruption() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    isPaused = false;
+    const mime = mediaRecorder.mimeType || 'audio/webm';
+    if (audioChunks.length > 0) {
+      savedChunks.push(...audioChunks);
+      audioChunks = [];
+    }
+    try { if (mediaRecorder.state !== 'inactive') mediaRecorder.stop(); } catch(e) {}
+    const mins = Math.floor(recSeconds / 60);
+    const secs = recSeconds % 60;
+    document.getElementById('btn-record').classList.remove('recording', 'paused');
+    document.getElementById('btn-record').textContent = '⚠️';
+    document.getElementById('rec-label').textContent = '録音が中断されました（' + mins + '分' + secs + '秒まで録音済み）';
+    document.getElementById('rec-timer').classList.remove('paused-color');
+    document.getElementById('rec-controls').classList.remove('visible');
+    document.getElementById('btn-resume').style.display = 'inline-block';
+    document.getElementById('btn-discard').style.display = 'block';
+    // Create file from saved chunks
+    if (savedChunks.length > 0) {
+      const ext = mime.includes('mp4') ? 'm4a' : 'webm';
+      const blob = new Blob(savedChunks, { type: mime });
+      setFile(new File([blob], 'recording.' + ext, { type: mime }), '🎤');
+      document.getElementById('btn-save-audio').style.display = 'inline-block';
+    }
+  }
+
+  async function resumeRecord() {
+    hideError();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) { audioChunks.push(e.data); recordedSize += e.data.size; updateRecSize(); lastDataTime = Date.now(); }
+      };
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const mime = mediaRecorder.mimeType || 'audio/webm';
+        const ext = mime.includes('mp4') ? 'm4a' : 'webm';
+        const allChunks = [...savedChunks, ...audioChunks];
+        const blob = new Blob(allChunks, { type: mime });
+        savedChunks = [];
+        setFile(new File([blob], 'recording.' + ext, { type: mime }), '🎤');
+        document.getElementById('btn-save-audio').style.display = 'inline-block';
+      };
+      mediaRecorder.start(1000);
+      lastDataTime = Date.now();
+      isPaused = false;
+      timerInterval = setInterval(() => { if (!isPaused) { recSeconds++; updateTimer(); } }, 1000);
+      document.getElementById('btn-record').classList.add('recording');
+      document.getElementById('btn-record').textContent = '🔴';
+      document.getElementById('rec-label').textContent = '録音再開中...';
+      document.getElementById('rec-timer').classList.add('visible');
+      document.getElementById('rec-size').classList.add('visible');
+      document.getElementById('rec-controls').classList.add('visible');
+      document.getElementById('btn-resume').style.display = 'none';
+      document.getElementById('btn-save-audio').style.display = 'none';
+      document.getElementById('btn-discard').style.display = 'none';
+    } catch(e) {
+      showError('マイクへのアクセスが拒否されました。ブラウザの設定でマイクを許可してください。');
+    }
+  }
+
   function saveAudioBackup() {
     if (!selectedFile) return;
     const url = URL.createObjectURL(selectedFile);
@@ -743,7 +826,7 @@
     if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) {
       mediaRecorder.stop();
     }
-    clearInterval(timerInterval); isPaused = false; recSeconds = 0; recordedSize = 0;
+    clearInterval(timerInterval); isPaused = false; recSeconds = 0; recordedSize = 0; savedChunks = [];
     document.getElementById('rec-timer').classList.remove('visible', 'paused-color');
     document.getElementById('rec-timer').textContent = '00:00';
     document.getElementById('rec-size').classList.remove('visible');
@@ -755,6 +838,7 @@
     document.getElementById('btn-pause').textContent = '⏸ 一時停止';
     document.getElementById('btn-discard').style.display = 'none';
     document.getElementById('btn-save-audio').style.display = 'none';
+    document.getElementById('btn-resume').style.display = 'none';
     selectedFile = null; document.getElementById('file-info').classList.remove('visible'); checkReady();
   }
 
