@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#6c63ff">
+<link rel="manifest" href="manifest.json">
 <title>会議文字起こし＋要約</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -130,9 +134,11 @@
     50% { box-shadow: 0 0 0 12px rgba(239,68,68,0); }
   }
   .record-label { font-size: 14px; color: var(--muted); margin-bottom: 6px; }
-  .record-timer { font-family: 'Space Mono', monospace; font-size: 22px; color: var(--text); margin-bottom: 12px; display: none; }
+  .record-timer { font-family: 'Space Mono', monospace; font-size: 22px; color: var(--text); margin-bottom: 4px; display: none; }
   .record-timer.visible { display: block; }
   .record-timer.paused-color { color: var(--orange); }
+  .rec-size { font-size: 12px; color: var(--muted); margin-bottom: 12px; display: none; }
+  .rec-size.visible { display: block; }
   .rec-controls { display: none; gap: 8px; justify-content: center; }
   .rec-controls.visible { display: flex; }
   .btn-pause-rec, .btn-stop-rec {
@@ -158,14 +164,14 @@
   .file-info.visible { display: flex; }
   .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* Language */
+  /* Language & Template buttons */
   .lang-row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .lang-btn {
+  .lang-btn, .tmpl-btn {
     background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
     padding: 8px 14px; color: var(--muted); font-size: 13px; cursor: pointer;
     transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif;
   }
-  .lang-btn.active { background: rgba(108,99,255,0.2); border-color: var(--accent); color: var(--text); }
+  .lang-btn.active, .tmpl-btn.active { background: rgba(108,99,255,0.2); border-color: var(--accent); color: var(--text); }
   .lang-btn-sm { font-size: 11px; padding: 8px 10px; color: var(--muted); opacity: 0.7; }
 
   /* Start button */
@@ -200,6 +206,7 @@
   .results.visible { display: block; }
   .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .result-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .result-btns { display: flex; gap: 6px; }
   .result-body {
     background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
     padding: 16px; font-size: 14px; line-height: 1.8; white-space: pre-wrap;
@@ -207,19 +214,28 @@
   }
   .result-body::-webkit-scrollbar { width: 4px; }
   .result-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-  .btn-copy {
+  .btn-copy, .btn-share {
     background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
     padding: 6px 14px; color: var(--text); font-size: 12px; cursor: pointer;
     transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif;
   }
   .btn-copy:hover { border-color: var(--accent); color: var(--accent); }
   .btn-copy.copied { border-color: var(--success); color: var(--success); }
+  .btn-share:hover { border-color: var(--accent2); color: var(--accent2); }
   .btn-reset {
     width: 100%; background: transparent; border: 1px solid var(--border); border-radius: 10px;
     padding: 12px; color: var(--muted); font-size: 13px; cursor: pointer;
     transition: all 0.2s; margin-top: 4px; font-family: 'Noto Sans JP', sans-serif;
   }
   .btn-reset:hover { color: var(--error); border-color: var(--error); }
+
+  /* Cost display */
+  .cost-display {
+    background: var(--surface2); border-radius: 8px; padding: 10px 14px;
+    font-size: 12px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .cost-total { color: var(--success); font-weight: 600; }
+  .cost-monthly { margin-left: auto; opacity: 0.8; }
 
   /* Error */
   .error-box {
@@ -315,6 +331,7 @@
         <div class="record-label" id="rec-label">タップして録音開始</div>
         <button class="btn-record" id="btn-record" onclick="toggleRecord()">🎤</button>
         <div class="record-timer" id="rec-timer">00:00</div>
+        <div class="rec-size" id="rec-size"></div>
         <div class="rec-controls" id="rec-controls">
           <button class="btn-pause-rec" id="btn-pause" onclick="togglePause()">⏸ 一時停止</button>
           <button class="btn-stop-rec" onclick="stopRecord()">■ 停止して使用</button>
@@ -337,6 +354,16 @@
       <button class="lang-btn" data-lang="ja" onclick="setLang(this)">🇯🇵 日本語</button>
       <button class="lang-btn" data-lang="th" onclick="setLang(this)">🇹🇭 タイ語</button>
       <button class="lang-btn lang-btn-sm" data-lang="en" onclick="setLang(this)">🇺🇸 EN</button>
+    </div>
+  </div>
+
+  <!-- Template selection -->
+  <div class="card">
+    <div class="card-label">要約テンプレート</div>
+    <div class="lang-row">
+      <button class="tmpl-btn active" data-template="standard" onclick="setTemplate(this)">📋 定例会議</button>
+      <button class="tmpl-btn" data-template="oneOnOne" onclick="setTemplate(this)">👥 1on1</button>
+      <button class="tmpl-btn" data-template="brief" onclick="setTemplate(this)">📌 簡易メモ</button>
     </div>
   </div>
 
@@ -376,16 +403,25 @@
     <div class="card" style="margin-bottom:12px">
       <div class="result-header">
         <span class="result-title">📋 要約（タイ語＋日本語）</span>
-        <button class="btn-copy" onclick="copyResult('summary-text', this)">コピー</button>
+        <div class="result-btns">
+          <button class="btn-share" onclick="shareResult('summary-text')">共有</button>
+          <button class="btn-copy" onclick="copyResult('summary-text', this)">コピー</button>
+        </div>
       </div>
       <div class="result-body" id="summary-text"></div>
     </div>
     <div class="card" style="margin-bottom:12px">
       <div class="result-header">
         <span class="result-title">📝 文字起こし原文</span>
-        <button class="btn-copy" onclick="copyResult('transcript-text', this)">コピー</button>
+        <div class="result-btns">
+          <button class="btn-share" onclick="shareResult('transcript-text')">共有</button>
+          <button class="btn-copy" onclick="copyResult('transcript-text', this)">コピー</button>
+        </div>
       </div>
       <div class="result-body" id="transcript-text"></div>
+    </div>
+    <div class="card" id="cost-display" style="margin-bottom:12px;display:none">
+      <div class="cost-display" id="cost-details"></div>
     </div>
     <button class="btn-reset" onclick="reset()">✕ リセットして最初から</button>
   </div>
@@ -443,11 +479,74 @@
 <script>
   let selectedFile = null;
   let selectedLang = '';
+  let selectedTemplate = 'standard';
   let mediaRecorder = null;
   let audioChunks = [];
   let timerInterval = null;
   let recSeconds = 0;
   let isPaused = false;
+  let recordedSize = 0;
+
+  // Template prompts
+  const TEMPLATES = {
+    standard: `以下は会議の文字起こしです（日本語・タイ語混在）。
+タイ語と日本語の両方で、以下の形式で要約を作成してください。
+
+【สรุปการประชุม】
+（タイ語で2〜3文の概要）
+
+ประเด็นหลักและการตัดสินใจ（主な議題・決定事項）
+・
+・
+
+สิ่งที่ต้องดำเนินการ（アクションアイテム）
+・
+
+---
+
+【会議要約】
+（日本語で2〜3文の概要）
+
+主な議題・決定事項
+・
+・
+
+アクションアイテム
+・`,
+    oneOnOne: `以下は1on1ミーティングの文字起こしです。
+タイ語と日本語の両方で要約してください。
+
+【สรุป 1on1】
+หัวข้อที่พูดคุย（話した内容）
+・
+
+ข้อตกลง（合意事項）
+・
+
+สิ่งที่ต้องติดตาม（フォローアップ）
+・
+
+---
+
+【1on1 要約】
+話した内容
+・
+
+合意事項
+・
+
+フォローアップ
+・`,
+    brief: `以下は会議の文字起こしです。タイ語と日本語で、箇条書きで簡潔にまとめてください。要点を3〜5点に絞ってください。
+
+【สรุปสั้นๆ】
+・
+
+---
+
+【簡易メモ】
+・`
+  };
 
   // Init
   window.addEventListener('load', () => {
@@ -456,11 +555,14 @@
       if (v) { document.getElementById(k + '-key').value = v; setStatus(k, true); }
     });
     updateSettingsBtn();
-    // 未設定の場合は初回起動時に設定モーダルを自動で開く
     if (!localStorage.getItem('oai_key') || !localStorage.getItem('ant_key')) {
       openSettings();
     }
     checkReady();
+    // PWA Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
   });
 
   // Settings modal
@@ -515,6 +617,13 @@
     selectedLang = btn.dataset.lang;
   }
 
+  // Template
+  function setTemplate(btn) {
+    document.querySelectorAll('.tmpl-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedTemplate = btn.dataset.template;
+  }
+
   // File
   function onFile(e) { if (e.target.files[0]) setFile(e.target.files[0], '🎧'); }
   function setFile(file, icon) {
@@ -540,8 +649,11 @@
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunks = [];
+      recordedSize = 0;
       mediaRecorder = new MediaRecorder(stream);
-      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+      mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) { audioChunks.push(e.data); recordedSize += e.data.size; updateRecSize(); }
+      };
       mediaRecorder.onstop = () => {
         stream.getTracks().forEach(t => t.stop());
         const mime = mediaRecorder.mimeType || 'audio/webm';
@@ -561,7 +673,7 @@
         URL.revokeObjectURL(dlUrl);
         setFile(new File([blob], 'recording.' + ext, { type: mime }), '🎤');
       };
-      mediaRecorder.start();
+      mediaRecorder.start(1000);
       recSeconds = 0; isPaused = false;
       updateTimer();
       timerInterval = setInterval(() => { if (!isPaused) { recSeconds++; updateTimer(); } }, 1000);
@@ -569,10 +681,16 @@
       document.getElementById('btn-record').textContent = '🔴';
       document.getElementById('rec-label').textContent = '録音中...';
       document.getElementById('rec-timer').classList.add('visible');
+      document.getElementById('rec-size').classList.add('visible');
       document.getElementById('rec-controls').classList.add('visible');
     } catch(e) {
       showError('マイクへのアクセスが拒否されました。ブラウザの設定でマイクを許可してください。');
     }
+  }
+
+  function updateRecSize() {
+    const mb = (recordedSize / (1024 * 1024)).toFixed(1);
+    document.getElementById('rec-size').textContent = '約 ' + mb + ' MB';
   }
 
   function togglePause() {
@@ -618,9 +736,11 @@
     if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) {
       mediaRecorder.stop();
     }
-    clearInterval(timerInterval); isPaused = false; recSeconds = 0;
+    clearInterval(timerInterval); isPaused = false; recSeconds = 0; recordedSize = 0;
     document.getElementById('rec-timer').classList.remove('visible', 'paused-color');
     document.getElementById('rec-timer').textContent = '00:00';
+    document.getElementById('rec-size').classList.remove('visible');
+    document.getElementById('rec-size').textContent = '';
     document.getElementById('rec-label').textContent = 'タップして録音開始';
     document.getElementById('btn-record').textContent = '🎤';
     document.getElementById('btn-record').classList.remove('recording', 'paused');
@@ -674,18 +794,19 @@
     formData.append('file', file);
     formData.append('model', 'whisper-1');
     if (lang) formData.append('language', lang);
-    formData.append('response_format', 'text');
+    formData.append('response_format', 'verbose_json');
     const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST', headers: { 'Authorization': 'Bearer ' + oaiKey }, body: formData
     });
     if (!res.ok) { let m = 'Whisperエラー: ' + res.status; try { const e = await res.json(); m = e.error?.message || m; } catch {} throw new Error(m); }
-    return await res.text();
+    return await res.json();
   }
 
   async function transcribeAudio(file, oaiKey, lang) {
     const MAX_SIZE = 24 * 1024 * 1024;
     if (file.size <= MAX_SIZE) {
-      return await sendToWhisper(file, oaiKey, lang);
+      const data = await sendToWhisper(file, oaiKey, lang);
+      return { text: data.text, segments: data.segments || [], duration: data.duration || 0 };
     }
     // 25MB超過：音声を分割して送信
     updateStepSub('step-transcribe', '音声ファイルを分割処理しています...');
@@ -693,13 +814,15 @@
     const arrayBuf = await file.arrayBuffer();
     const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
     const targetRate = 16000;
-    const chunkSec = 480; // 8分ごとに分割
+    const chunkSec = 480;
     const duration = audioBuf.duration;
     const numChunks = Math.ceil(duration / chunkSec);
     const srcData = audioBuf.getChannelData(0);
     const ratio = audioBuf.sampleRate / targetRate;
     const totalSamples = Math.floor(srcData.length / ratio);
-    let fullTranscript = '';
+    let fullText = '';
+    let allSegments = [];
+    let totalDuration = 0;
     for (let i = 0; i < numChunks; i++) {
       updateStepSub('step-transcribe', `分割 ${i + 1}/${numChunks} を文字起こし中...`);
       const startS = Math.floor(i * chunkSec * targetRate);
@@ -710,15 +833,80 @@
       }
       const wavBlob = encodeWAV(chunk, targetRate);
       const wavFile = new File([wavBlob], `chunk_${i}.wav`, { type: 'audio/wav' });
-      const text = await sendToWhisper(wavFile, oaiKey, lang);
-      fullTranscript += (fullTranscript ? '\n' : '') + text;
+      const data = await sendToWhisper(wavFile, oaiKey, lang);
+      const timeOffset = i * chunkSec;
+      if (data.segments) {
+        allSegments.push(...data.segments.map(s => ({ ...s, start: s.start + timeOffset, end: s.end + timeOffset })));
+      }
+      fullText += (fullText ? '\n' : '') + data.text;
+      totalDuration += data.duration || 0;
     }
     audioCtx.close();
-    return fullTranscript;
+    return { text: fullText, segments: allSegments, duration: totalDuration };
   }
 
   function updateStepSub(id, text) {
     document.getElementById(id).querySelector('.step-sub').textContent = text;
+  }
+
+  // Timestamp formatting
+  function fmtTs(sec) {
+    const m = String(Math.floor(sec / 60)).padStart(2, '0');
+    const s = String(Math.floor(sec % 60)).padStart(2, '0');
+    return m + ':' + s;
+  }
+
+  function formatTimestampedTranscript(segments) {
+    if (!segments || segments.length === 0) return '';
+    return segments.map(s => '[' + fmtTs(s.start) + '] ' + s.text.trim()).join('\n');
+  }
+
+  // Sharing
+  async function shareResult(id) {
+    const text = document.getElementById(id).textContent;
+    if (navigator.share) {
+      try { await navigator.share({ title: '会議議事録', text }); } catch(e) {}
+    } else {
+      await navigator.clipboard.writeText(text);
+      alert('クリップボードにコピーしました');
+    }
+  }
+
+  // Cost calculation
+  function calculateCost(durationMin, usage) {
+    const whisperUSD = durationMin * 0.006;
+    const claudeInUSD = (usage.input_tokens / 1000000) * 3.0;
+    const claudeOutUSD = (usage.output_tokens / 1000000) * 15.0;
+    const claudeUSD = claudeInUSD + claudeOutUSD;
+    const totalUSD = whisperUSD + claudeUSD;
+    const rate = 150;
+    return {
+      whisperJPY: Math.round(whisperUSD * rate * 10) / 10,
+      claudeJPY: Math.round(claudeUSD * rate * 10) / 10,
+      totalJPY: Math.round(totalUSD * rate * 10) / 10
+    };
+  }
+
+  function displayCost(cost) {
+    const monthly = getMonthlyCost() + cost.totalJPY;
+    document.getElementById('cost-details').innerHTML =
+      'Whisper: ¥' + cost.whisperJPY + ' · Claude: ¥' + cost.claudeJPY +
+      ' · <span class="cost-total">合計: ¥' + cost.totalJPY + '</span>' +
+      '<span class="cost-monthly">今月の累計: ¥' + (Math.round(monthly * 10) / 10) + '</span>';
+    document.getElementById('cost-display').style.display = 'block';
+  }
+
+  function saveMonthlyCost(amount) {
+    const now = new Date();
+    const key = 'cost_' + now.getFullYear() + '_' + (now.getMonth() + 1);
+    const current = parseFloat(localStorage.getItem(key) || '0');
+    localStorage.setItem(key, (current + amount).toFixed(1));
+  }
+
+  function getMonthlyCost() {
+    const now = new Date();
+    const key = 'cost_' + now.getFullYear() + '_' + (now.getMonth() + 1);
+    return parseFloat(localStorage.getItem(key) || '0');
   }
 
   // Main
@@ -731,13 +919,18 @@
     document.getElementById('btn-start').disabled = true;
     document.getElementById('steps').classList.add('visible');
     document.getElementById('results').classList.remove('visible');
+    document.getElementById('cost-display').style.display = 'none';
     resetSteps();
 
     try {
       setStep('step-upload', 'active'); setStep('step-transcribe', 'active');
-      const transcript = await transcribeAudio(selectedFile, oaiKey, selectedLang);
+      const result = await transcribeAudio(selectedFile, oaiKey, selectedLang);
       setStep('step-upload', 'done'); setStep('step-transcribe', 'done');
       setStep('step-summarize', 'active');
+
+      const timestamped = formatTimestampedTranscript(result.segments);
+      const plainText = result.text;
+      const prompt = TEMPLATES[selectedTemplate] + '\n\n---文字起こし---\n' + plainText;
 
       const cRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -749,46 +942,27 @@
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 1500,
-          messages: [{ role: 'user', content: `以下は会議の文字起こしです（日本語・タイ語混在）。
-タイ語と日本語の両方で、以下の形式で要約を作成してください。
-
-【สรุปการประชุม】
-（タイ語で2〜3文の概要）
-
-ประเด็นหลักและการตัดสินใจ（主な議題・決定事項）
-・
-・
-
-สิ่งที่ต้องดำเนินการ（アクションアイテム）
-・
-
----
-
-【会議要約】
-（日本語で2〜3文の概要）
-
-主な議題・決定事項
-・
-・
-
-アクションアイテム
-・
-
----文字起こし---
-${transcript}` }]
+          messages: [{ role: 'user', content: prompt }]
         })
       });
       if (!cRes.ok) { let m = 'Claudeエラー: ' + cRes.status; try { const e = await cRes.json(); m = e.error?.message || m; } catch {} throw new Error(m); }
       const cData = await cRes.json();
       const summary = cData.content[0].text;
+      const usage = cData.usage;
       setStep('step-summarize', 'done');
 
-      document.getElementById('transcript-text').textContent = transcript;
+      document.getElementById('transcript-text').textContent = timestamped || plainText;
       document.getElementById('summary-text').textContent = summary;
       document.getElementById('results').classList.add('visible');
 
+      // Cost
+      const durationMin = (result.duration || 0) / 60;
+      const cost = calculateCost(durationMin, usage);
+      displayCost(cost);
+      saveMonthlyCost(cost.totalJPY);
+
       // Save to history
-      saveHistory({ filename: selectedFile.name, transcript, summary });
+      saveHistory({ filename: selectedFile.name, transcript: timestamped || plainText, summary });
 
     } catch(err) {
       ['step-upload','step-transcribe','step-summarize'].forEach(id => {

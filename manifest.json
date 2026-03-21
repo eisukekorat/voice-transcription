@@ -1,0 +1,9 @@
+{
+  "name": "Meeting Transcribe",
+  "short_name": "議事録",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#6c63ff",
+  "description": "会議の文字起こしと要約アプリ"
+}
