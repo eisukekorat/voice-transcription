@@ -336,7 +336,10 @@
           <button class="btn-pause-rec" id="btn-pause" onclick="togglePause()">⏸ 一時停止</button>
           <button class="btn-stop-rec" onclick="stopRecord()">■ 停止して使用</button>
         </div>
-        <button class="btn-discard" id="btn-discard" onclick="discardRecording()" style="display:none">🗑 録音を破棄</button>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+          <button class="btn-discard" id="btn-save-audio" onclick="saveAudioBackup()" style="display:none">💾 音声を保存</button>
+          <button class="btn-discard" id="btn-discard" onclick="discardRecording()" style="display:none">🗑 録音を破棄</button>
+        </div>
       </div>
     </div>
 
@@ -659,19 +662,8 @@
         const mime = mediaRecorder.mimeType || 'audio/webm';
         const ext = mime.includes('mp4') ? 'm4a' : 'webm';
         const blob = new Blob(audioChunks, { type: mime });
-        // 自動バックアップダウンロード
-        const dlUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = dlUrl;
-        const n = new Date();
-        const ts = n.getFullYear() + String(n.getMonth()+1).padStart(2,'0') + String(n.getDate()).padStart(2,'0')
-          + '_' + String(n.getHours()).padStart(2,'0') + String(n.getMinutes()).padStart(2,'0');
-        a.download = 'recording_' + ts + '.' + ext;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(dlUrl);
         setFile(new File([blob], 'recording.' + ext, { type: mime }), '🎤');
+        document.getElementById('btn-save-audio').style.display = 'inline-block';
       };
       mediaRecorder.start(1000);
       recSeconds = 0; isPaused = false;
@@ -727,6 +719,21 @@
     }
   }
 
+  function saveAudioBackup() {
+    if (!selectedFile) return;
+    const url = URL.createObjectURL(selectedFile);
+    const a = document.createElement('a');
+    a.href = url;
+    const n = new Date();
+    const ts = n.getFullYear() + String(n.getMonth()+1).padStart(2,'0') + String(n.getDate()).padStart(2,'0')
+      + '_' + String(n.getHours()).padStart(2,'0') + String(n.getMinutes()).padStart(2,'0');
+    a.download = 'recording_' + ts + '.' + (selectedFile.name.split('.').pop() || 'm4a');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   function discardRecording() {
     clearRecording();
     document.getElementById('rec-label').textContent = 'タップして録音開始';
@@ -747,6 +754,7 @@
     document.getElementById('rec-controls').classList.remove('visible');
     document.getElementById('btn-pause').textContent = '⏸ 一時停止';
     document.getElementById('btn-discard').style.display = 'none';
+    document.getElementById('btn-save-audio').style.display = 'none';
     selectedFile = null; document.getElementById('file-info').classList.remove('visible'); checkReady();
   }
 
