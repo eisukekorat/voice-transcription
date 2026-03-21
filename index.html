@@ -305,7 +305,7 @@
         <input type="file" id="file-input" accept="*/*" onchange="onFile(event)" />
         <span class="upload-icon">🎵</span>
         <h3>タップしてファイルを選択</h3>
-        <p>m4a · mp3 · wav · mp4 など対応（最大25MB）</p>
+        <p>m4a · mp3 · wav · mp4 など対応（大容量ファイルは自動分割）</p>
       </div>
     </div>
 
@@ -533,6 +533,9 @@
   // Recording
   async function toggleRecord() {
     if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) return;
+    if (selectedFile) {
+      if (!confirm('前の音声データがあります。新しい録音を開始すると上書きされます。よろしいですか？')) return;
+    }
     hideError();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -544,6 +547,18 @@
         const mime = mediaRecorder.mimeType || 'audio/webm';
         const ext = mime.includes('mp4') ? 'm4a' : 'webm';
         const blob = new Blob(audioChunks, { type: mime });
+        // 自動バックアップダウンロード
+        const dlUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = dlUrl;
+        const n = new Date();
+        const ts = n.getFullYear() + String(n.getMonth()+1).padStart(2,'0') + String(n.getDate()).padStart(2,'0')
+          + '_' + String(n.getHours()).padStart(2,'0') + String(n.getMinutes()).padStart(2,'0');
+        a.download = 'recording_' + ts + '.' + ext;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(dlUrl);
         setFile(new File([blob], 'recording.' + ext, { type: mime }), '🎤');
       };
       mediaRecorder.start();
@@ -627,12 +642,90 @@
     document.getElementById('btn-start').disabled = !(oai && ant && selectedFile);
   }
 
+  // WAV encoder for audio splitting
+  function writeWavString(view, offset, str) {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  }
+  function encodeWAV(samples, sampleRate) {
+    const buf = new ArrayBuffer(44 + samples.length * 2);
+    const v = new DataView(buf);
+    writeWavString(v, 0, 'RIFF');
+    v.setUint32(4, 36 + samples.length * 2, true);
+    writeWavString(v, 8, 'WAVE');
+    writeWavString(v, 12, 'fmt ');
+    v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true);
+    v.setUint16(22, 1, true);
+    v.setUint32(24, sampleRate, true);
+    v.setUint32(28, sampleRate * 2, true);
+    v.setUint16(32, 2, true);
+    v.setUint16(34, 16, true);
+    writeWavString(v, 36, 'data');
+    v.setUint32(40, samples.length * 2, true);
+    for (let i = 0; i < samples.length; i++) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+    return new Blob([buf], { type: 'audio/wav' });
+  }
+
+  async function sendToWhisper(file, oaiKey, lang) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('model', 'whisper-1');
+    if (lang) formData.append('language', lang);
+    formData.append('response_format', 'text');
+    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + oaiKey }, body: formData
+    });
+    if (!res.ok) { let m = 'Whisperエラー: ' + res.status; try { const e = await res.json(); m = e.error?.message || m; } catch {} throw new Error(m); }
+    return await res.text();
+  }
+
+  async function transcribeAudio(file, oaiKey, lang) {
+    const MAX_SIZE = 24 * 1024 * 1024;
+    if (file.size <= MAX_SIZE) {
+      return await sendToWhisper(file, oaiKey, lang);
+    }
+    // 25MB超過：音声を分割して送信
+    updateStepSub('step-transcribe', '音声ファイルを分割処理しています...');
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const arrayBuf = await file.arrayBuffer();
+    const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
+    const targetRate = 16000;
+    const chunkSec = 480; // 8分ごとに分割
+    const duration = audioBuf.duration;
+    const numChunks = Math.ceil(duration / chunkSec);
+    const srcData = audioBuf.getChannelData(0);
+    const ratio = audioBuf.sampleRate / targetRate;
+    const totalSamples = Math.floor(srcData.length / ratio);
+    let fullTranscript = '';
+    for (let i = 0; i < numChunks; i++) {
+      updateStepSub('step-transcribe', `分割 ${i + 1}/${numChunks} を文字起こし中...`);
+      const startS = Math.floor(i * chunkSec * targetRate);
+      const endS = Math.min(Math.floor((i + 1) * chunkSec * targetRate), totalSamples);
+      const chunk = new Float32Array(endS - startS);
+      for (let j = 0; j < chunk.length; j++) {
+        chunk[j] = srcData[Math.min(Math.floor((startS + j) * ratio), srcData.length - 1)];
+      }
+      const wavBlob = encodeWAV(chunk, targetRate);
+      const wavFile = new File([wavBlob], `chunk_${i}.wav`, { type: 'audio/wav' });
+      const text = await sendToWhisper(wavFile, oaiKey, lang);
+      fullTranscript += (fullTranscript ? '\n' : '') + text;
+    }
+    audioCtx.close();
+    return fullTranscript;
+  }
+
+  function updateStepSub(id, text) {
+    document.getElementById(id).querySelector('.step-sub').textContent = text;
+  }
+
   // Main
   async function start() {
     const oaiKey = localStorage.getItem('oai_key');
     const antKey = localStorage.getItem('ant_key');
     if (!oaiKey || !antKey || !selectedFile) return;
-    if (selectedFile.size > 25 * 1024 * 1024) { showError('ファイルサイズが25MBを超えています。'); return; }
 
     hideError();
     document.getElementById('btn-start').disabled = true;
@@ -642,17 +735,7 @@
 
     try {
       setStep('step-upload', 'active'); setStep('step-transcribe', 'active');
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('model', 'whisper-1');
-      if (selectedLang) formData.append('language', selectedLang);
-      formData.append('response_format', 'text');
-
-      const wRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST', headers: { 'Authorization': 'Bearer ' + oaiKey }, body: formData
-      });
-      if (!wRes.ok) { let m = 'Whisperエラー: ' + wRes.status; try { const e = await wRes.json(); m = e.error?.message || m; } catch {} throw new Error(m); }
-      const transcript = await wRes.text();
+      const transcript = await transcribeAudio(selectedFile, oaiKey, selectedLang);
       setStep('step-upload', 'done'); setStep('step-transcribe', 'done');
       setStep('step-summarize', 'active');
 
