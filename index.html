@@ -222,6 +222,8 @@
   .btn-copy:hover { border-color: var(--accent); color: var(--accent); }
   .btn-copy.copied { border-color: var(--success); color: var(--success); }
   .btn-share:hover { border-color: var(--accent2); color: var(--accent2); }
+  .btn-outlook { border-color: #0078d4; color: #0078d4; }
+  .btn-outlook:hover { background: #0078d4; color: white; }
   .btn-reset {
     width: 100%; background: transparent; border: 1px solid var(--border); border-radius: 10px;
     padding: 12px; color: var(--muted); font-size: 13px; cursor: pointer;
@@ -427,6 +429,7 @@
     <div class="card" id="cost-display" style="margin-bottom:12px;display:none">
       <div class="cost-display" id="cost-details"></div>
     </div>
+    <button class="btn-copy btn-outlook" onclick="sendToOutlook()" style="width:100%;margin-bottom:8px;padding:12px">📧 Outlookで送る</button>
     <button class="btn-reset" onclick="reset()">✕ リセットして最初から</button>
   </div>
 
@@ -1145,6 +1148,19 @@
     await navigator.clipboard.writeText(document.getElementById(id).textContent);
     btn.textContent = '✓ コピー完了'; btn.classList.add('copied');
     setTimeout(() => { btn.textContent = 'コピー'; btn.classList.remove('copied'); }, 2000);
+  }
+
+  function sendToOutlook() {
+    const summary = document.getElementById('summary-text').textContent;
+    const transcript = document.getElementById('transcript-text').textContent;
+    const date = new Date().toLocaleDateString('ja-JP');
+    const filename = selectedFile ? selectedFile.name.replace(/\.[^/.]+$/, '') : '会議';
+    const subject = encodeURIComponent('【会議要約】' + filename + '　' + date);
+    const body = encodeURIComponent(
+      '■ 要約\n' + summary +
+      '\n\n──────────────────\n■ 文字起こし原文\n' + transcript
+    );
+    window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
   }
 
   function reset() {
