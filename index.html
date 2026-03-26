@@ -455,7 +455,16 @@
       </div>
       <div class="key-status" id="ant-status">未設定</div>
     </div>
-    <p style="font-size:11px;color:var(--muted);margin-top:8px">APIキーはこのデバイスのブラウザにのみ保存されます。外部サーバーには送信されません。</p>
+    <div class="modal-section" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <div class="modal-label">☁️ Cloudflare Worker URL（任意・推奨）</div>
+      <div class="key-row">
+        <input type="text" class="key-input" id="worker-url" placeholder="https://voice-transcription.YOUR_NAME.workers.dev" style="font-family:'Noto Sans JP',sans-serif;font-size:11px" />
+        <button class="btn-save" onclick="saveWorkerUrl()">保存</button>
+      </div>
+      <div class="key-status" id="worker-status">未設定（直接API呼び出しモード）</div>
+      <p style="font-size:11px;color:var(--muted);margin-top:6px">設定するとバックグラウンドでも文字起こし・要約が継続されます</p>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin-top:8px" id="key-notice">APIキーはこのデバイスのブラウザにのみ保存されます。外部サーバーには送信されません。</p>
   </div>
 </div>
 
@@ -492,6 +501,16 @@
   let recordedSize = 0;
   let savedChunks = [];
   let lastDataTime = 0;
+  let wakeLock = null;
+
+  async function acquireWakeLock() {
+    if ('wakeLock' in navigator) {
+      try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+    }
+  }
+  function releaseWakeLock() {
+    if (wakeLock) { wakeLock.release(); wakeLock = null; }
+  }
 
   // Template prompts
   const TEMPLATES = {
@@ -556,6 +575,8 @@
 
   // Init
   window.addEventListener('load', () => {
+    const wUrl = localStorage.getItem('worker_url');
+    if (wUrl) { document.getElementById('worker-url').value = wUrl; setWorkerStatus(wUrl); updateKeyNotice(true); }
     ['oai', 'ant'].forEach(k => {
       const v = localStorage.getItem(k + '_key');
       if (v) { document.getElementById(k + '-key').value = v; setStatus(k, true); }
@@ -604,6 +625,22 @@
     const el = document.getElementById(k + '-status');
     el.textContent = ok ? '✓ 保存済み' : '未設定';
     el.className = 'key-status' + (ok ? ' ok' : '');
+  }
+  function saveWorkerUrl() {
+    const v = document.getElementById('worker-url').value.trim().replace(/\/$/, '');
+    if (!v) { localStorage.removeItem('worker_url'); setWorkerStatus(''); updateKeyNotice(false); checkReady(); return; }
+    localStorage.setItem('worker_url', v);
+    setWorkerStatus(v); updateKeyNotice(true); hideError(); checkReady();
+  }
+  function setWorkerStatus(url) {
+    const el = document.getElementById('worker-status');
+    if (url) { el.textContent = '✓ 設定済み（バックグラウンド処理有効）'; el.className = 'key-status ok'; }
+    else { el.textContent = '未設定（直接API呼び出しモード）'; el.className = 'key-status'; }
+  }
+  function updateKeyNotice(hasWorker) {
+    document.getElementById('key-notice').textContent = hasWorker
+      ? 'APIキーはWorkerへHTTPS送信されます。Worker側で処理されるためブラウザを離れても継続します。'
+      : 'APIキーはこのデバイスのブラウザにのみ保存されます。外部サーバーには送信されません。';
   }
 
   // Tab switch
@@ -673,6 +710,7 @@
       };
       mediaRecorder.start(1000);
       lastDataTime = Date.now();
+      acquireWakeLock();
       recSeconds = 0; isPaused = false;
       updateTimer();
       timerInterval = setInterval(() => { if (!isPaused) { recSeconds++; updateTimer(); } }, 1000);
@@ -715,7 +753,7 @@
 
   function stopRecord() {
     if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) {
-      mediaRecorder.stop(); clearInterval(timerInterval); isPaused = false;
+      mediaRecorder.stop(); clearInterval(timerInterval); isPaused = false; releaseWakeLock();
       document.getElementById('btn-record').classList.remove('recording', 'paused');
       document.getElementById('btn-record').textContent = '🎤';
       document.getElementById('rec-label').textContent = '録音完了！使用する準備ができました';
@@ -729,6 +767,8 @@
   // Background interruption detection
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && mediaRecorder && timerInterval) {
+      // Wake Lock is auto-released when page becomes hidden, re-acquire it
+      acquireWakeLock();
       setTimeout(() => {
         if (mediaRecorder && timerInterval && (Date.now() - lastDataTime > 3000)) {
           handleInterruption();
@@ -741,6 +781,7 @@
     clearInterval(timerInterval);
     timerInterval = null;
     isPaused = false;
+    releaseWakeLock();
     const mime = mediaRecorder.mimeType || 'audio/webm';
     if (audioChunks.length > 0) {
       savedChunks.push(...audioChunks);
@@ -786,6 +827,7 @@
       };
       mediaRecorder.start(1000);
       lastDataTime = Date.now();
+      acquireWakeLock();
       isPaused = false;
       timerInterval = setInterval(() => { if (!isPaused) { recSeconds++; updateTimer(); } }, 1000);
       document.getElementById('btn-record').classList.add('recording');
@@ -1013,48 +1055,66 @@
     document.getElementById('results').classList.remove('visible');
     document.getElementById('cost-display').style.display = 'none';
     resetSteps();
+    acquireWakeLock();
+    const workerUrl = localStorage.getItem('worker_url');
 
     try {
-      setStep('step-upload', 'active'); setStep('step-transcribe', 'active');
-      const result = await transcribeAudio(selectedFile, oaiKey, selectedLang);
-      setStep('step-upload', 'done'); setStep('step-transcribe', 'done');
-      setStep('step-summarize', 'active');
+      let transcript, segments, duration, summary, usage;
 
-      const timestamped = formatTimestampedTranscript(result.segments);
-      const plainText = result.text;
-      const prompt = TEMPLATES[selectedTemplate] + '\n\n---文字起こし---\n' + plainText;
+      if (workerUrl) {
+        // Workerモード: バックグラウンドでも継続可能
+        setStep('step-upload', 'active'); setStep('step-transcribe', 'active'); setStep('step-summarize', 'active');
+        const form = new FormData();
+        form.append('audio', selectedFile);
+        form.append('language', selectedLang);
+        form.append('template', selectedTemplate);
+        const wRes = await fetch(workerUrl + '/process', {
+          method: 'POST',
+          headers: { 'X-OAI-Key': oaiKey, 'X-ANT-Key': antKey },
+          body: form,
+        });
+        if (!wRes.ok) { let m = 'Workerエラー: ' + wRes.status; try { const e = await wRes.json(); m = e.error || m; } catch {} throw new Error(m); }
+        const data = await wRes.json();
+        transcript = data.transcript; segments = data.segments; duration = data.duration;
+        summary = data.summary; usage = data.usage;
+        setStep('step-upload', 'done'); setStep('step-transcribe', 'done'); setStep('step-summarize', 'done');
+      } else {
+        // 直接APIモード（従来の動作）
+        setStep('step-upload', 'active'); setStep('step-transcribe', 'active');
+        const result = await transcribeAudio(selectedFile, oaiKey, selectedLang);
+        setStep('step-upload', 'done'); setStep('step-transcribe', 'done');
+        setStep('step-summarize', 'active');
+        transcript = result.text; segments = result.segments; duration = result.duration;
 
-      const cRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': antKey, 'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1500,
-          messages: [{ role: 'user', content: prompt }]
-        })
-      });
-      if (!cRes.ok) { let m = 'Claudeエラー: ' + cRes.status; try { const e = await cRes.json(); m = e.error?.message || m; } catch {} throw new Error(m); }
-      const cData = await cRes.json();
-      const summary = cData.content[0].text;
-      const usage = cData.usage;
-      setStep('step-summarize', 'done');
+        const prompt = TEMPLATES[selectedTemplate] + '\n\n---文字起こし---\n' + transcript;
+        const cRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': antKey, 'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1500, messages: [{ role: 'user', content: prompt }] })
+        });
+        if (!cRes.ok) { let m = 'Claudeエラー: ' + cRes.status; try { const e = await cRes.json(); m = e.error?.message || m; } catch {} throw new Error(m); }
+        const cData = await cRes.json();
+        summary = cData.content[0].text; usage = cData.usage;
+        setStep('step-summarize', 'done');
+      }
 
-      document.getElementById('transcript-text').textContent = timestamped || plainText;
+      const timestamped = formatTimestampedTranscript(segments);
+      document.getElementById('transcript-text').textContent = timestamped || transcript;
       document.getElementById('summary-text').textContent = summary;
       document.getElementById('results').classList.add('visible');
 
       // Cost
-      const durationMin = (result.duration || 0) / 60;
+      const durationMin = (duration || 0) / 60;
       const cost = calculateCost(durationMin, usage);
       displayCost(cost);
       saveMonthlyCost(cost.totalJPY);
 
       // Save to history
-      saveHistory({ filename: selectedFile.name, transcript: timestamped || plainText, summary });
+      saveHistory({ filename: selectedFile.name, transcript: timestamped || transcript, summary });
 
     } catch(err) {
       ['step-upload','step-transcribe','step-summarize'].forEach(id => {
@@ -1063,6 +1123,7 @@
       showError(err.message);
     } finally {
       document.getElementById('btn-start').disabled = false;
+      releaseWakeLock();
     }
   }
 

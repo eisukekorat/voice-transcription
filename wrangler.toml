@@ -1,0 +1,7 @@
+name = "voice-transcription"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+# APIキーをWorkerのシークレットとして設定する場合（任意）:
+# wrangler secret put OAI_KEY
+# wrangler secret put ANT_KEY
