@@ -369,6 +369,8 @@
     <div class="lang-row">
       <button class="tmpl-btn active" data-template="standard" onclick="setTemplate(this)">📋 定例会議</button>
       <button class="tmpl-btn" data-template="oneOnOne" onclick="setTemplate(this)">👥 1on1</button>
+      <button class="tmpl-btn" data-template="quality" onclick="setTemplate(this)">🔍 品質会議</button>
+      <button class="tmpl-btn" data-template="supplier" onclick="setTemplate(this)">🏭 サプライヤー</button>
       <button class="tmpl-btn" data-template="brief" onclick="setTemplate(this)">📌 簡易メモ</button>
     </div>
   </div>
@@ -564,6 +566,80 @@
 ・
 
 フォローアップ
+・`,
+    quality: `以下は品質会議の文字起こしです（日本語・タイ語混在）。
+タイ語と日本語の両方で、以下の形式で要約を作成してください。
+
+【สรุปการประชุมคุณภาพ】
+（タイ語で概要）
+
+ปัญหา/ของเสียที่พบ（不良内容・発生状況）
+・
+
+การวิเคราะห์สาเหตุ（原因分析）
+・
+
+มาตรการแก้ไข（対策：暫定・恒久）
+・
+
+ผู้รับผิดชอบ/กำหนดเวลา（責任者・期限）
+・
+
+การขยายผลในแนวนอน（水平展開）
+・
+
+---
+
+【品質会議要約】
+（日本語で概要）
+
+不良内容・発生状況
+・
+
+原因分析
+・
+
+対策（暫定・恒久）
+・
+
+責任者・期限
+・
+
+水平展開
+・`,
+    supplier: `以下はサプライヤーとの会議の文字起こしです（日本語・タイ語混在）。
+タイ語と日本語の両方で、以下の形式で要約を作成してください。
+
+【สรุปการประชุมกับ Supplier】
+（タイ語で概要）
+
+หัวข้อที่พูดคุย（議題：品質/納期/コスト）
+・
+
+คำตอบ/ข้อตกลงของ Supplier（サプライヤー側の回答・コミット）
+・
+
+ข้อเรียกร้องของเรา（こちらの要求事項）
+・
+
+การติดตามครั้งถัดไป（次回フォローアップ日）
+・
+
+---
+
+【サプライヤー会議要約】
+（日本語で概要）
+
+議題（品質/納期/コスト）
+・
+
+サプライヤー側の回答・コミット
+・
+
+こちらの要求事項
+・
+
+次回フォローアップ日
 ・`,
     brief: `以下は会議の文字起こしです。タイ語と日本語で、箇条書きで簡潔にまとめてください。要点を3〜5点に絞ってください。
 
