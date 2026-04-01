@@ -4,304 +4,285 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#6c63ff">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest.json">
 <title>会議文字起こし＋要約</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0a0a0f;
-    --surface: #13131a;
-    --surface2: #1c1c26;
-    --border: #2a2a3a;
-    --accent: #6c63ff;
-    --accent2: #ff6b9d;
-    --text: #e8e8f0;
-    --muted: #7070a0;
-    --success: #4ade80;
-    --error: #f87171;
-    --warn: #fbbf24;
-    --red: #ef4444;
-    --orange: #f97316;
+    --bg: #f2f2f7;
+    --card: #ffffff;
+    --text: #1c1c1e;
+    --secondary: #8e8e93;
+    --separator: #c6c6c8;
+    --fill: #e5e5ea;
+    --accent: #007aff;
+    --danger: #ff3b30;
+    --success: #34c759;
+    --warning: #ff9500;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: var(--bg); color: var(--text);
-    font-family: 'Noto Sans JP', sans-serif;
-    min-height: 100vh; display: flex; flex-direction: column;
-    align-items: center; padding: 24px 16px 48px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Noto Sans JP", "Segoe UI", sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 0 48px;
   }
-  body::before {
-    content: ''; position: fixed; top: -200px; left: 50%;
-    transform: translateX(-50%); width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(108,99,255,0.1) 0%, transparent 70%);
-    pointer-events: none; z-index: 0;
+  .header-wrap {
+    width: 100%;
+    max-width: 680px;
+    padding: 52px 16px 20px;
+    position: relative;
+    text-align: center;
   }
-  .container { width: 100%; max-width: 680px; position: relative; z-index: 1; }
-
-  /* Header */
-  .header { text-align: center; margin-bottom: 32px; padding-top: 52px; position: relative; }
-  .header h1 {
-    font-family: 'Space Mono', monospace;
-    font-size: clamp(18px, 4vw, 26px); font-weight: 700;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text; margin-bottom: 6px;
-  }
-  .header p { color: var(--muted); font-size: 12px; }
+  .header h1 { font-size: clamp(20px, 4vw, 26px); font-weight: 700; color: var(--text); margin-bottom: 4px; letter-spacing: -0.5px; }
+  .header p { color: var(--secondary); font-size: 13px; }
   .btn-history-toggle {
-    position: absolute; right: 0; top: 10px;
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 8px 14px;
-    color: var(--muted); font-size: 12px; cursor: pointer;
-    transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif;
+    position: absolute; right: 16px; top: 14px;
+    background: var(--card); border: none; border-radius: 10px; padding: 8px 14px;
+    color: var(--accent); font-size: 13px; cursor: pointer; font-family: inherit;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   }
-  .btn-history-toggle:hover { border-color: var(--accent); color: var(--text); }
-  .btn-history-toggle.active { border-color: var(--accent); color: var(--accent); background: rgba(108,99,255,0.1); }
+  .btn-history-toggle.active { background: var(--accent); color: white; }
   .btn-settings-toggle {
-    position: absolute; left: 0; top: 10px;
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 8px 14px;
-    color: var(--muted); font-size: 12px; cursor: pointer;
-    transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif;
+    position: absolute; left: 16px; top: 14px;
+    background: var(--card); border: none; border-radius: 10px; padding: 8px 14px;
+    color: var(--accent); font-size: 13px; cursor: pointer; font-family: inherit;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   }
-  .btn-settings-toggle:hover { border-color: var(--accent); color: var(--text); }
-  .btn-settings-toggle.configured { border-color: var(--success); color: var(--success); }
+  .btn-settings-toggle.configured { color: var(--success); }
 
-  /* Card */
+  .container { width: 100%; max-width: 680px; padding: 0 16px; }
+
   .card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 16px; padding: 20px; margin-bottom: 12px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    background: var(--card);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   }
   .card-label {
-    font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700;
-    color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px;
+    font-size: 12px; font-weight: 600; color: var(--secondary);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;
   }
 
   /* API Keys */
-  .key-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .key-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
   .key-input {
-    flex: 1; background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 11px 14px; color: var(--text);
-    font-family: 'Space Mono', monospace; font-size: 12px; outline: none; transition: border-color 0.2s;
+    flex: 1; background: var(--bg); border: 1px solid var(--separator);
+    border-radius: 10px; padding: 10px 14px; color: var(--text);
+    font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
   }
-  .key-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108,99,255,0.15); }
-  .key-input::placeholder { color: var(--muted); }
+  .key-input:focus { border-color: var(--accent); }
+  .key-input::placeholder { color: var(--secondary); }
   .btn-save {
     background: var(--accent); color: white; border: none; border-radius: 10px;
-    padding: 11px 14px; font-size: 11px; font-weight: 700;
-    font-family: 'Space Mono', monospace; cursor: pointer; white-space: nowrap; transition: opacity 0.2s;
+    padding: 10px 14px; font-size: 14px; font-weight: 600;
+    font-family: inherit; cursor: pointer; white-space: nowrap;
   }
-  .btn-save:hover { opacity: 0.85; }
-  .key-status { font-size: 11px; color: var(--muted); }
+  .btn-save:active { opacity: 0.8; }
+  .key-status { font-size: 12px; color: var(--secondary); }
   .key-status.ok { color: var(--success); }
 
-  /* Tabs */
-  .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
-  .tab {
-    flex: 1; padding: 10px; background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 10px; color: var(--muted); font-size: 13px;
-    font-family: 'Noto Sans JP', sans-serif; cursor: pointer; text-align: center; transition: all 0.2s;
+  /* Segmented control */
+  .seg-control {
+    display: flex; background: var(--fill); border-radius: 9px;
+    padding: 2px; margin-bottom: 14px;
   }
-  .tab.active { background: rgba(108,99,255,0.2); border-color: var(--accent); color: var(--text); box-shadow: 0 0 12px rgba(108,99,255,0.15); }
+  .seg-btn {
+    flex: 1; padding: 7px 10px; border: none; border-radius: 7px;
+    background: transparent; color: var(--secondary); font-size: 13px; font-weight: 500;
+    font-family: inherit; cursor: pointer; transition: all 0.15s; text-align: center;
+  }
+  .seg-btn.active { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
 
   /* Upload */
   .upload-area {
-    border: 2px dashed var(--border); border-radius: 12px; padding: 36px 20px;
+    border: 1.5px dashed var(--separator); border-radius: 10px; padding: 32px 20px;
     text-align: center; cursor: pointer; transition: all 0.2s; position: relative;
   }
-  .upload-area:hover, .upload-area.drag-over { border-color: var(--accent); background: rgba(108,99,255,0.07); box-shadow: inset 0 0 30px rgba(108,99,255,0.05), 0 0 0 1px rgba(108,99,255,0.1); }
+  .upload-area:hover, .upload-area.drag-over { border-color: var(--accent); background: rgba(0,122,255,0.04); }
   .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-  .upload-icon { font-size: 36px; margin-bottom: 10px; display: block; }
+  .upload-icon { font-size: 32px; margin-bottom: 8px; display: block; }
   .upload-area h3 { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
-  .upload-area p { font-size: 12px; color: var(--muted); }
+  .upload-area p { font-size: 13px; color: var(--secondary); }
 
   /* Recording */
-  .record-area { text-align: center; padding: 12px 0; }
+  .record-area { text-align: center; padding: 8px 0; }
   .btn-record {
-    width: 80px; height: 80px; border-radius: 50%;
-    border: 3px solid var(--accent); background: rgba(108,99,255,0.1);
-    font-size: 32px; cursor: pointer; transition: all 0.2s;
-    display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;
+    width: 72px; height: 72px; border-radius: 50%; border: 3px solid var(--accent);
+    background: rgba(0,122,255,0.08); font-size: 28px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; transition: all 0.2s;
   }
-  .btn-record:hover { background: rgba(108,99,255,0.25); box-shadow: 0 0 20px rgba(108,99,255,0.2); }
-  .btn-record.recording { border-color: var(--red); background: rgba(239,68,68,0.15); animation: pulse-rec 1.2s ease-in-out infinite; }
-  .btn-record.paused { border-color: var(--orange); background: rgba(249,115,22,0.15); animation: none; }
+  .btn-record.recording { border-color: var(--danger); background: rgba(255,59,48,0.1); animation: pulse-rec 1.2s ease-in-out infinite; }
+  .btn-record.paused { border-color: var(--warning); background: rgba(255,149,0,0.1); animation: none; }
   @keyframes pulse-rec {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
-    50% { box-shadow: 0 0 0 12px rgba(239,68,68,0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,59,48,0.4); }
+    50% { box-shadow: 0 0 0 10px rgba(255,59,48,0); }
   }
-  .record-label { font-size: 14px; color: var(--muted); margin-bottom: 6px; }
-  .record-timer { font-family: 'Space Mono', monospace; font-size: 22px; color: var(--text); margin-bottom: 4px; display: none; }
+  .record-label { font-size: 14px; color: var(--secondary); margin-bottom: 8px; }
+  .record-timer { font-size: 22px; font-weight: 300; color: var(--text); margin-bottom: 4px; display: none; letter-spacing: 1px; }
   .record-timer.visible { display: block; }
-  .record-timer.paused-color { color: var(--orange); }
-  .rec-size { font-size: 12px; color: var(--muted); margin-bottom: 12px; display: none; }
+  .record-timer.paused-color { color: var(--warning); }
+  .rec-size { font-size: 12px; color: var(--secondary); margin-bottom: 10px; display: none; }
   .rec-size.visible { display: block; }
   .rec-controls { display: none; gap: 8px; justify-content: center; }
   .rec-controls.visible { display: flex; }
   .btn-pause-rec, .btn-stop-rec {
-    border: none; border-radius: 10px; padding: 10px 20px;
-    font-size: 13px; font-weight: 700; font-family: 'Noto Sans JP', sans-serif;
-    cursor: pointer; transition: opacity 0.2s;
+    border: none; border-radius: 10px; padding: 9px 18px;
+    font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer;
   }
-  .btn-pause-rec { background: var(--orange); color: white; }
-  .btn-stop-rec { background: var(--red); color: white; }
-  .btn-pause-rec:hover, .btn-stop-rec:hover { opacity: 0.85; }
+  .btn-pause-rec { background: var(--warning); color: white; }
+  .btn-stop-rec { background: var(--danger); color: white; }
   .btn-discard {
-    background: none; border: 1px solid var(--border); border-radius: 8px;
-    padding: 7px 16px; color: var(--muted); font-size: 12px; cursor: pointer;
-    margin-top: 10px; transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif;
+    background: none; border: 1px solid var(--separator); border-radius: 8px;
+    padding: 7px 14px; color: var(--secondary); font-size: 13px; cursor: pointer;
+    margin-top: 8px; font-family: inherit;
   }
-  .btn-discard:hover { color: var(--error); border-color: var(--error); }
 
   /* File info */
   .file-info {
-    margin-top: 12px; background: var(--surface2); border-radius: 8px;
+    margin-top: 10px; background: var(--bg); border-radius: 8px;
     padding: 10px 14px; display: none; align-items: center; gap: 10px; font-size: 13px;
   }
   .file-info.visible { display: flex; }
   .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* Language & Template buttons */
-  .lang-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* Language & Template pill buttons */
+  .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
   .lang-btn, .tmpl-btn {
-    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
-    padding: 8px 14px; color: var(--muted); font-size: 13px; cursor: pointer;
-    transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg); border: 1px solid var(--separator); border-radius: 20px;
+    padding: 7px 14px; color: var(--text); font-size: 13px; cursor: pointer;
+    font-family: inherit; transition: all 0.15s;
   }
-  .lang-btn.active, .tmpl-btn.active { background: rgba(108,99,255,0.2); border-color: var(--accent); color: var(--text); }
-  .lang-btn-sm { font-size: 11px; padding: 8px 10px; color: var(--muted); opacity: 0.7; }
+  .lang-btn.active, .tmpl-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .lang-btn-sm { font-size: 12px; padding: 7px 10px; }
 
   /* Start button */
   .btn-start {
-    width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent2));
-    color: white; border: none; border-radius: 12px; padding: 16px;
-    font-size: 15px; font-weight: 700; font-family: 'Noto Sans JP', sans-serif;
-    cursor: pointer; transition: opacity 0.2s, transform 0.1s; margin-bottom: 12px;
+    width: 100%; background: var(--accent); color: white; border: none;
+    border-radius: 14px; padding: 16px; font-size: 17px; font-weight: 600;
+    font-family: inherit; cursor: pointer; margin-bottom: 16px; transition: opacity 0.2s;
   }
-  .btn-start:hover:not(:disabled) { opacity: 0.9; box-shadow: 0 4px 24px rgba(108,99,255,0.45); }
-  .btn-start:active:not(:disabled) { transform: scale(0.99); }
+  .btn-start:active:not(:disabled) { opacity: 0.85; }
   .btn-start:disabled { opacity: 0.35; cursor: not-allowed; }
 
   /* Steps */
-  .steps { margin-bottom: 12px; display: none; }
+  .steps { margin-bottom: 16px; display: none; }
   .steps.visible { display: block; }
   .step {
     display: flex; align-items: center; gap: 12px; padding: 12px 16px;
-    border-radius: 10px; margin-bottom: 8px; background: var(--surface);
-    border: 1px solid var(--border); font-size: 13px; transition: all 0.3s;
+    border-radius: 10px; margin-bottom: 8px; background: var(--card);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); font-size: 14px; transition: all 0.3s;
   }
-  .step.active { border-color: var(--accent); background: rgba(108,99,255,0.08); }
-  .step.done { border-color: var(--success); background: rgba(74,222,128,0.06); }
-  .step.error { border-color: var(--error); background: rgba(248,113,113,0.06); }
+  .step.active { background: rgba(0,122,255,0.06); box-shadow: 0 0 0 1px rgba(0,122,255,0.3); }
+  .step.done { background: rgba(52,199,89,0.06); box-shadow: 0 0 0 1px rgba(52,199,89,0.3); }
+  .step.error { background: rgba(255,59,48,0.06); box-shadow: 0 0 0 1px rgba(255,59,48,0.3); }
   .step-icon { font-size: 18px; flex-shrink: 0; width: 24px; text-align: center; }
   .step-text { flex: 1; }
   .step-label { font-weight: 500; }
-  .step-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .step-sub { font-size: 12px; color: var(--secondary); margin-top: 2px; }
 
   /* Results */
   .results { display: none; }
   .results.visible { display: block; }
   .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .result-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .result-title { font-size: 13px; font-weight: 600; color: var(--secondary); text-transform: uppercase; letter-spacing: 0.5px; }
   .result-btns { display: flex; gap: 6px; }
   .result-body {
-    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
-    padding: 16px; font-size: 14px; line-height: 1.8; white-space: pre-wrap;
-    word-break: break-word; max-height: 360px; overflow-y: auto;
+    background: var(--bg); border-radius: 10px; padding: 14px;
+    font-size: 14px; line-height: 1.8; white-space: pre-wrap; word-break: break-word;
+    max-height: 360px; overflow-y: auto;
   }
-  .result-body::-webkit-scrollbar { width: 4px; }
-  .result-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
   .btn-copy, .btn-share {
-    background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
-    padding: 6px 14px; color: var(--text); font-size: 12px; cursor: pointer;
-    transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg); border: 1px solid var(--separator); border-radius: 7px;
+    padding: 6px 12px; color: var(--accent); font-size: 13px; cursor: pointer; font-family: inherit;
   }
-  .btn-copy:hover { border-color: var(--accent); color: var(--accent); }
-  .btn-copy.copied { border-color: var(--success); color: var(--success); }
-  .btn-share:hover { border-color: var(--accent2); color: var(--accent2); }
-  .btn-outlook { border-color: #0078d4; color: #0078d4; }
-  .btn-outlook:hover { background: #0078d4; color: white; }
+  .btn-copy.copied { color: var(--success); border-color: var(--success); }
+  .btn-outlook { color: #0078d4; border-color: #0078d4; }
   .btn-reset {
-    width: 100%; background: transparent; border: 1px solid var(--border); border-radius: 10px;
-    padding: 12px; color: var(--muted); font-size: 13px; cursor: pointer;
-    transition: all 0.2s; margin-top: 4px; font-family: 'Noto Sans JP', sans-serif;
+    width: 100%; background: transparent; border: 1px solid var(--separator); border-radius: 10px;
+    padding: 12px; color: var(--secondary); font-size: 14px; cursor: pointer;
+    margin-top: 4px; font-family: inherit;
   }
-  .btn-reset:hover { color: var(--error); border-color: var(--error); }
 
-  /* Cost display */
+  /* Cost */
   .cost-display {
-    background: var(--surface2); border-radius: 8px; padding: 10px 14px;
-    font-size: 12px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    background: var(--bg); border-radius: 10px; padding: 10px 14px;
+    font-size: 13px; color: var(--secondary); display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
   }
   .cost-total { color: var(--success); font-weight: 600; }
-  .cost-monthly { margin-left: auto; opacity: 0.8; }
+  .cost-monthly { margin-left: auto; }
 
   /* Error */
   .error-box {
-    background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3);
-    border-radius: 8px; padding: 12px 14px; font-size: 13px; color: var(--error);
+    background: rgba(255,59,48,0.08); border: 1px solid rgba(255,59,48,0.3);
+    border-radius: 10px; padding: 12px 14px; font-size: 13px; color: var(--danger);
     margin-bottom: 12px; display: none;
   }
   .error-box.visible { display: block; }
 
-  /* History panel */
-  .history-panel { display: none; margin-bottom: 20px; }
+  /* History */
+  .history-panel { display: none; margin-bottom: 16px; }
   .history-panel.visible { display: block; }
-  .history-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0; }
+  .history-empty { text-align: center; color: var(--secondary); font-size: 14px; padding: 24px 0; }
   .history-item {
-    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
-    padding: 14px 16px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;
+    background: var(--card); border-radius: 10px; padding: 12px 14px;
+    margin-bottom: 8px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   }
-  .history-item:hover { border-color: var(--accent); }
   .history-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-  .history-date { font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; }
-  .history-file { font-size: 12px; color: var(--accent); }
-  .history-preview { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .btn-history-delete {
-    background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: 14px; padding: 2px 6px; border-radius: 4px; transition: color 0.2s;
-  }
-  .btn-history-delete:hover { color: var(--error); }
+  .history-date { font-size: 12px; color: var(--secondary); }
+  .history-file { font-size: 13px; color: var(--accent); }
+  .history-preview { font-size: 13px; color: var(--secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn-history-delete { background: none; border: none; color: var(--secondary); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; }
 
-  /* History detail modal */
+  /* Modal - bottom sheet */
   .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 100; padding: 20px; display: none;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    display: none; align-items: flex-end; justify-content: center;
+    z-index: 100; padding: 0;
   }
   .modal-overlay.visible { display: flex; }
   .modal {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-    width: 100%; max-width: 640px; max-height: 80vh; overflow-y: auto; padding: 24px;
-    box-shadow: 0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(108,99,255,0.1);
+    background: var(--card); border-radius: 16px 16px 0 0;
+    width: 100%; max-width: 680px; max-height: 88vh; overflow-y: auto;
+    padding: 12px 20px 32px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
   }
+  .modal-handle { width: 36px; height: 4px; background: var(--separator); border-radius: 2px; margin: 0 auto 14px; }
   .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-  .modal-title { font-size: 14px; font-weight: 600; }
+  .modal-title { font-size: 17px; font-weight: 600; }
   .btn-modal-close {
-    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
-    padding: 6px 12px; color: var(--text); font-size: 12px; cursor: pointer;
+    background: var(--fill); border: none; border-radius: 50%;
+    width: 28px; height: 28px; color: var(--secondary); font-size: 13px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-family: inherit;
   }
-  .modal-section { margin-bottom: 16px; }
-  .modal-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+  .modal-section { margin-bottom: 20px; }
+  .modal-label { font-size: 12px; font-weight: 600; color: var(--secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
   .modal-body {
-    background: var(--surface2); border-radius: 8px; padding: 14px;
-    font-size: 13px; line-height: 1.8; white-space: pre-wrap; word-break: break-word;
-    max-height: 200px; overflow-y: auto;
+    background: var(--bg); border-radius: 10px; padding: 14px;
+    font-size: 14px; line-height: 1.8; white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto;
   }
+  .modal-divider { height: 0.5px; background: var(--separator); margin: 16px 0; }
 </style>
 </head>
 <body>
-<div class="container">
 
+<div class="header-wrap">
   <div class="header">
     <h1>🎙 MEETING TRANSCRIBE</h1>
-    <p>Whisper（文字起こし）+ Claude（要約） · 日本語・タイ語対応</p>
-    <button class="btn-settings-toggle" id="btn-settings" onclick="openSettings()">⚙️ 設定</button>
-    <button class="btn-history-toggle" id="btn-hist" onclick="toggleHistory()">📜 履歴</button>
+    <p>Gemini（文字起こし）+ Claude（要約） · 日本語・タイ語対応</p>
   </div>
+  <button class="btn-settings-toggle" id="btn-settings" onclick="openSettings()">⚙️ 設定</button>
+  <button class="btn-history-toggle" id="btn-hist" onclick="toggleHistory()">📜 履歴</button>
+</div>
+
+<div class="container">
 
   <!-- History panel -->
   <div class="history-panel card" id="history-panel">
@@ -312,23 +293,23 @@
   <!-- Audio Input -->
   <div class="card">
     <div class="card-label">音声入力</div>
-    <div class="tabs">
-      <button class="tab" id="tab-file" onclick="switchTab('file')">📁 ファイルから選択</button>
-      <button class="tab active" id="tab-rec" onclick="switchTab('rec')">🎤 その場で録音</button>
+    <div class="seg-control">
+      <button class="seg-btn active" id="tab-file" onclick="switchTab('file')">📁 ファイルから選択</button>
+      <button class="seg-btn" id="tab-rec" onclick="switchTab('rec')">🎤 その場で録音</button>
     </div>
 
     <!-- File -->
-    <div id="panel-file" style="display:none">
+    <div id="panel-file">
       <div class="upload-area" id="upload-area">
         <input type="file" id="file-input" accept="*/*" onchange="onFile(event)" />
         <span class="upload-icon">🎵</span>
         <h3>タップしてファイルを選択</h3>
-        <p>m4a · mp3 · wav · mp4 など対応（大容量ファイルは自動分割）</p>
+        <p>m4a · mp3 · wav · mp4 など対応</p>
       </div>
     </div>
 
     <!-- Recording -->
-    <div id="panel-rec">
+    <div id="panel-rec" style="display:none">
       <div class="record-area">
         <div class="record-label" id="rec-label">タップして録音開始</div>
         <button class="btn-record" id="btn-record" onclick="toggleRecord()">🎤</button>
@@ -352,10 +333,10 @@
     </div>
   </div>
 
-  <!-- Language for Whisper -->
+  <!-- Language -->
   <div class="card">
-    <div class="card-label">音声の言語（Whisper用）</div>
-    <div class="lang-row">
+    <div class="card-label">音声の言語</div>
+    <div class="btn-group">
       <button class="lang-btn active" data-lang="" onclick="setLang(this)">🇯🇵🇹🇭 ミックス（自動）</button>
       <button class="lang-btn" data-lang="ja" onclick="setLang(this)">🇯🇵 日本語</button>
       <button class="lang-btn" data-lang="th" onclick="setLang(this)">🇹🇭 タイ語</button>
@@ -363,10 +344,10 @@
     </div>
   </div>
 
-  <!-- Template selection -->
+  <!-- Template -->
   <div class="card">
     <div class="card-label">要約テンプレート</div>
-    <div class="lang-row">
+    <div class="btn-group">
       <button class="tmpl-btn active" data-template="understand" onclick="setTemplate(this)">🎯 内容理解</button>
       <button class="tmpl-btn" data-template="quality" onclick="setTemplate(this)">🔍 品質会議</button>
       <button class="tmpl-btn" data-template="minutes" onclick="setTemplate(this)">📋 議事録</button>
@@ -385,7 +366,7 @@
     <div class="step" id="step-upload">
       <span class="step-icon">📤</span>
       <div class="step-text">
-        <div class="step-label">Whisperへ送信中</div>
+        <div class="step-label">Geminiへ送信中</div>
         <div class="step-sub">音声ファイルをアップロードしています</div>
       </div>
     </div>
@@ -393,7 +374,7 @@
       <span class="step-icon">✍️</span>
       <div class="step-text">
         <div class="step-label">文字起こし中</div>
-        <div class="step-sub">Whisper APIが音声を解析しています</div>
+        <div class="step-sub">Gemini APIが音声を解析しています</div>
       </div>
     </div>
     <div class="step" id="step-summarize">
@@ -407,7 +388,7 @@
 
   <!-- Results -->
   <div class="results" id="results">
-    <div class="card" style="margin-bottom:12px">
+    <div class="card" style="margin-bottom:16px">
       <div class="result-header">
         <span class="result-title">📋 要約（タイ語＋日本語）</span>
         <div class="result-btns">
@@ -417,7 +398,7 @@
       </div>
       <div class="result-body" id="summary-text"></div>
     </div>
-    <div class="card" style="margin-bottom:12px">
+    <div class="card" style="margin-bottom:16px">
       <div class="result-header">
         <span class="result-title">📝 文字起こし原文</span>
         <div class="result-btns">
@@ -427,11 +408,11 @@
       </div>
       <div class="result-body" id="transcript-text"></div>
     </div>
-    <div class="card" id="cost-display" style="margin-bottom:12px;display:none">
+    <div class="card" id="cost-display" style="margin-bottom:16px;display:none">
       <div class="cost-display" id="cost-details"></div>
     </div>
-    <div class="card" id="reprocess-card" style="margin-bottom:12px">
-      <div class="card-label">🔄 別のテンプレートで再処理（Whisperスキップ・数秒）</div>
+    <div class="card" id="reprocess-card" style="margin-bottom:16px">
+      <div class="card-label">🔄 別のテンプレートで再処理（文字起こしスキップ・数秒）</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
         <button class="tmpl-btn" data-retemplate="understand" onclick="selectRetemplate(this)">🎯 内容理解</button>
         <button class="tmpl-btn" data-retemplate="quality" onclick="selectRetemplate(this)">🔍 品質会議</button>
@@ -449,12 +430,30 @@
 <!-- Settings modal -->
 <div class="modal-overlay" id="settings-overlay" onclick="closeSettings(event)">
   <div class="modal">
+    <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-title">⚙️ API キー設定</div>
-      <button class="btn-modal-close" onclick="closeSettings()">✕ 閉じる</button>
+      <button class="btn-modal-close" onclick="closeSettings()">✕</button>
     </div>
     <div class="modal-section">
-      <div class="modal-label">OpenAI API Key（Whisper 文字起こし用）</div>
+      <div class="modal-label">Gemini API Key（文字起こし用・必須）</div>
+      <div class="key-row">
+        <input type="password" class="key-input" id="gem-key" placeholder="AIza..." />
+        <button class="btn-save" onclick="saveKey('gem')">保存</button>
+      </div>
+      <div class="key-status" id="gem-status">未設定</div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-label">Anthropic API Key（Claude 要約用・必須）</div>
+      <div class="key-row">
+        <input type="password" class="key-input" id="ant-key" placeholder="sk-ant-..." />
+        <button class="btn-save" onclick="saveKey('ant')">保存</button>
+      </div>
+      <div class="key-status" id="ant-status">未設定</div>
+    </div>
+    <div class="modal-divider"></div>
+    <div class="modal-section">
+      <div class="modal-label">OpenAI API Key（任意・Whisper用）</div>
       <div class="key-row">
         <input type="password" class="key-input" id="oai-key" placeholder="sk-..." />
         <button class="btn-save" onclick="saveKey('oai')">保存</button>
@@ -462,35 +461,28 @@
       <div class="key-status" id="oai-status">未設定</div>
     </div>
     <div class="modal-section">
-      <div class="modal-label">Anthropic API Key（Claude 要約用）</div>
-      <div class="key-row">
-        <input type="password" class="key-input" id="ant-key" placeholder="sk-ant-..." />
-        <button class="btn-save" onclick="saveKey('ant')">保存</button>
-      </div>
-      <div class="key-status" id="ant-status">未設定</div>
-    </div>
-    <div class="modal-section" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
       <div class="modal-label">☁️ Cloudflare Worker URL（任意・推奨）</div>
       <div class="key-row">
-        <input type="text" class="key-input" id="worker-url" placeholder="https://voice-transcription.YOUR_NAME.workers.dev" style="font-family:'Noto Sans JP',sans-serif;font-size:11px" />
+        <input type="text" class="key-input" id="worker-url" placeholder="https://voice-transcription.YOUR_NAME.workers.dev" style="font-size:12px" />
         <button class="btn-save" onclick="saveWorkerUrl()">保存</button>
       </div>
       <div class="key-status" id="worker-status">未設定（直接API呼び出しモード）</div>
-      <p style="font-size:11px;color:var(--muted);margin-top:6px">設定するとバックグラウンドでも文字起こし・要約が継続されます</p>
+      <p style="font-size:11px;color:var(--secondary);margin-top:6px">設定するとバックグラウンドでも文字起こし・要約が継続されます</p>
     </div>
-    <p style="font-size:11px;color:var(--muted);margin-top:8px" id="key-notice">APIキーはこのデバイスのブラウザにのみ保存されます。外部サーバーには送信されません。</p>
+    <p style="font-size:11px;color:var(--secondary);margin-top:4px" id="key-notice">APIキーはこのデバイスのブラウザにのみ保存されます。外部サーバーには送信されません。</p>
   </div>
 </div>
 
 <!-- History detail modal -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
   <div class="modal">
+    <div class="modal-handle"></div>
     <div class="modal-header">
       <div>
         <div class="modal-title" id="modal-title"></div>
         <div class="history-date" id="modal-date" style="margin-top:4px"></div>
       </div>
-      <button class="btn-modal-close" onclick="closeModal()">✕ 閉じる</button>
+      <button class="btn-modal-close" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-section">
       <div class="modal-label">📋 要約</div>
@@ -531,48 +523,25 @@
 
   // Template prompts
   const TEMPLATES = {
-    understand: `以下は会議の文字起こしです（日本語・タイ語混在の場合あり）。
-私はタイ語が十分に理解できないため、会議の内容を深く理解する必要があります。
-以下の方針で、できるだけ詳細に要約を作成してください：
-・会議の流れを時系列に沿って詳しく説明する
+    understand: `以下は会議の文字起こしです（タイ語・日本語混在の場合あり）。
+自分が会議の内容を理解するための要約を日本語で作成してください。
+以下の方針で詳細に要約してください：
+・会議の流れを時系列に沿って説明する
 ・誰が何についてどういう主張や発言をしたか、できる限り拾う
 ・決定に至った経緯や背景、議論の流れも説明する
 ・タイ語の専門用語や独特な表現があれば、日本語で意味を補足する
 ・議論の温度感（意見の対立・強い主張・合意の雰囲気など）があれば記載する
 ・具体的な数値・品名・日付・人名が出た場合は必ず含める
-・人名は音声認識のままの表記で記載する
 
-【สรุปรายละเอียดการประชุม】
-
-ภาพรวม（全体の概要）
-・
-
-ลำดับการพูดคุย（議論の流れ・時系列）
-・
-
-ประเด็นสำคัญและรายละเอียด（重要なポイント・各者の発言の詳細）
-・
-
-การตัดสินใจและเหตุผล（決定事項・その理由や経緯）
-・
-
-ประเด็นที่ยังไม่ได้ข้อสรุป（未決事項）
-・
-
-สิ่งที่ต้องดำเนินการ（アクションアイテム）
-・
-
----
-
-【会議内容の詳細理解】
+【会議内容の理解】
 
 全体の概要
 ・
 
-議論の流れ（時系列に沿って）
+議論の流れ（時系列）
 ・
 
-重要なポイント（各者の発言内容を詳しく）
+重要なポイント・各者の発言
 ・
 
 決定事項（理由・経緯も含む）
@@ -725,16 +694,15 @@ CARステータス・是正処置状況
   window.addEventListener('load', () => {
     const wUrl = localStorage.getItem('worker_url');
     if (wUrl) { document.getElementById('worker-url').value = wUrl; setWorkerStatus(wUrl); updateKeyNotice(true); }
-    ['oai', 'ant'].forEach(k => {
+    ['gem', 'ant', 'oai'].forEach(k => {
       const v = localStorage.getItem(k + '_key');
       if (v) { document.getElementById(k + '-key').value = v; setStatus(k, true); }
     });
     updateSettingsBtn();
-    if (!localStorage.getItem('oai_key') || !localStorage.getItem('ant_key')) {
+    if (!localStorage.getItem('gem_key') || !localStorage.getItem('ant_key')) {
       openSettings();
     }
     checkReady();
-    // PWA Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }
@@ -752,14 +720,9 @@ CARステータス・是正処置状況
   }
   function updateSettingsBtn() {
     const btn = document.getElementById('btn-settings');
-    const bothSet = localStorage.getItem('oai_key') && localStorage.getItem('ant_key');
-    if (bothSet) {
-      btn.textContent = '⚙️ 設定済み';
-      btn.classList.add('configured');
-    } else {
-      btn.textContent = '⚙️ 設定';
-      btn.classList.remove('configured');
-    }
+    const bothSet = localStorage.getItem('gem_key') && localStorage.getItem('ant_key');
+    btn.textContent = bothSet ? '⚙️ 設定済み' : '⚙️ 設定';
+    btn.classList.toggle('configured', !!bothSet);
   }
 
   // API Keys
@@ -839,10 +802,8 @@ CARステータス・是正処置状況
     hideError();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioChunks = [];
-      recordedSize = 0;
-      savedChunks = [];
-      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = []; recordedSize = 0; savedChunks = [];
+      mediaRecorder = new MediaRecorder(stream, { audioBitsPerSecond: 128000 });
       mediaRecorder.ondataavailable = e => {
         if (e.data.size > 0) { audioChunks.push(e.data); recordedSize += e.data.size; updateRecSize(); lastDataTime = Date.now(); }
       };
@@ -912,10 +873,8 @@ CARステータス・是正処置状況
     }
   }
 
-  // Background interruption detection
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && mediaRecorder && timerInterval) {
-      // Wake Lock is auto-released when page becomes hidden, re-acquire it
       acquireWakeLock();
       setTimeout(() => {
         if (mediaRecorder && timerInterval && (Date.now() - lastDataTime > 3000)) {
@@ -926,18 +885,11 @@ CARステータス・是正処置状況
   });
 
   function handleInterruption() {
-    clearInterval(timerInterval);
-    timerInterval = null;
-    isPaused = false;
-    releaseWakeLock();
+    clearInterval(timerInterval); timerInterval = null; isPaused = false; releaseWakeLock();
     const mime = mediaRecorder.mimeType || 'audio/webm';
-    if (audioChunks.length > 0) {
-      savedChunks.push(...audioChunks);
-      audioChunks = [];
-    }
+    if (audioChunks.length > 0) { savedChunks.push(...audioChunks); audioChunks = []; }
     try { if (mediaRecorder.state !== 'inactive') mediaRecorder.stop(); } catch(e) {}
-    const mins = Math.floor(recSeconds / 60);
-    const secs = recSeconds % 60;
+    const mins = Math.floor(recSeconds / 60), secs = recSeconds % 60;
     document.getElementById('btn-record').classList.remove('recording', 'paused');
     document.getElementById('btn-record').textContent = '⚠️';
     document.getElementById('rec-label').textContent = '録音が中断されました（' + mins + '分' + secs + '秒まで録音済み）';
@@ -945,7 +897,6 @@ CARステータス・是正処置状況
     document.getElementById('rec-controls').classList.remove('visible');
     document.getElementById('btn-resume').style.display = 'inline-block';
     document.getElementById('btn-discard').style.display = 'block';
-    // Create file from saved chunks
     if (savedChunks.length > 0) {
       const ext = mime.includes('mp4') ? 'm4a' : 'webm';
       const blob = new Blob(savedChunks, { type: mime });
@@ -959,7 +910,7 @@ CARステータス・是正処置状況
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunks = [];
-      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder = new MediaRecorder(stream, { audioBitsPerSecond: 128000 });
       mediaRecorder.ondataavailable = e => {
         if (e.data.size > 0) { audioChunks.push(e.data); recordedSize += e.data.size; updateRecSize(); lastDataTime = Date.now(); }
       };
@@ -973,10 +924,7 @@ CARステータス・是正処置状況
         setFile(new File([blob], 'recording.' + ext, { type: mime }), '🎤');
         document.getElementById('btn-save-audio').style.display = 'inline-block';
       };
-      mediaRecorder.start(1000);
-      lastDataTime = Date.now();
-      acquireWakeLock();
-      isPaused = false;
+      mediaRecorder.start(1000); lastDataTime = Date.now(); acquireWakeLock(); isPaused = false;
       timerInterval = setInterval(() => { if (!isPaused) { recSeconds++; updateTimer(); } }, 1000);
       document.getElementById('btn-record').classList.add('recording');
       document.getElementById('btn-record').textContent = '🔴';
@@ -995,27 +943,18 @@ CARステータス・是正処置状況
   function saveAudioBackup() {
     if (!selectedFile) return;
     const url = URL.createObjectURL(selectedFile);
-    const a = document.createElement('a');
-    a.href = url;
+    const a = document.createElement('a'); a.href = url;
     const n = new Date();
     const ts = n.getFullYear() + String(n.getMonth()+1).padStart(2,'0') + String(n.getDate()).padStart(2,'0')
       + '_' + String(n.getHours()).padStart(2,'0') + String(n.getMinutes()).padStart(2,'0');
     a.download = 'recording_' + ts + '.' + (selectedFile.name.split('.').pop() || 'm4a');
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   }
 
-  function discardRecording() {
-    clearRecording();
-    document.getElementById('rec-label').textContent = 'タップして録音開始';
-  }
+  function discardRecording() { clearRecording(); document.getElementById('rec-label').textContent = 'タップして録音開始'; }
 
   function clearRecording() {
-    if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) {
-      mediaRecorder.stop();
-    }
+    if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) mediaRecorder.stop();
     clearInterval(timerInterval); isPaused = false; recSeconds = 0; recordedSize = 0; savedChunks = [];
     document.getElementById('rec-timer').classList.remove('visible', 'paused-color');
     document.getElementById('rec-timer').textContent = '00:00';
@@ -1039,31 +978,24 @@ CARステータス・是正処置状況
   }
 
   function checkReady() {
-    const oai = localStorage.getItem('oai_key');
+    const gem = localStorage.getItem('gem_key');
     const ant = localStorage.getItem('ant_key');
-    document.getElementById('btn-start').disabled = !(oai && ant && selectedFile);
+    document.getElementById('btn-start').disabled = !(gem && ant && selectedFile);
   }
 
-  // WAV encoder for audio splitting
+  // WAV encoder (kept for Whisper/fallback use)
   function writeWavString(view, offset, str) {
     for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
   }
   function encodeWAV(samples, sampleRate) {
     const buf = new ArrayBuffer(44 + samples.length * 2);
     const v = new DataView(buf);
-    writeWavString(v, 0, 'RIFF');
-    v.setUint32(4, 36 + samples.length * 2, true);
-    writeWavString(v, 8, 'WAVE');
-    writeWavString(v, 12, 'fmt ');
-    v.setUint32(16, 16, true);
-    v.setUint16(20, 1, true);
-    v.setUint16(22, 1, true);
-    v.setUint32(24, sampleRate, true);
-    v.setUint32(28, sampleRate * 2, true);
-    v.setUint16(32, 2, true);
-    v.setUint16(34, 16, true);
-    writeWavString(v, 36, 'data');
-    v.setUint32(40, samples.length * 2, true);
+    writeWavString(v, 0, 'RIFF'); v.setUint32(4, 36 + samples.length * 2, true);
+    writeWavString(v, 8, 'WAVE'); writeWavString(v, 12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    writeWavString(v, 36, 'data'); v.setUint32(40, samples.length * 2, true);
     for (let i = 0; i < samples.length; i++) {
       const s = Math.max(-1, Math.min(1, samples[i]));
       v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
@@ -1073,8 +1005,7 @@ CARステータス・是正処置状況
 
   async function sendToWhisper(file, oaiKey, lang) {
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('model', 'whisper-1');
+    formData.append('file', file); formData.append('model', 'whisper-1');
     if (lang) formData.append('language', lang);
     formData.append('response_format', 'verbose_json');
     const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
@@ -1090,21 +1021,17 @@ CARステータス・是正処置状況
       const data = await sendToWhisper(file, oaiKey, lang);
       return { text: data.text, segments: data.segments || [], duration: data.duration || 0 };
     }
-    // 25MB超過：音声を分割して送信
     updateStepSub('step-transcribe', '音声ファイルを分割処理しています...');
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const arrayBuf = await file.arrayBuffer();
     const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
-    const targetRate = 16000;
-    const chunkSec = 480;
+    const targetRate = 16000, chunkSec = 480;
     const duration = audioBuf.duration;
     const numChunks = Math.ceil(duration / chunkSec);
     const srcData = audioBuf.getChannelData(0);
     const ratio = audioBuf.sampleRate / targetRate;
     const totalSamples = Math.floor(srcData.length / ratio);
-    let fullText = '';
-    let allSegments = [];
-    let totalDuration = 0;
+    let fullText = '', allSegments = [], totalDuration = 0;
     for (let i = 0; i < numChunks; i++) {
       updateStepSub('step-transcribe', `分割 ${i + 1}/${numChunks} を文字起こし中...`);
       const startS = Math.floor(i * chunkSec * targetRate);
@@ -1117,9 +1044,7 @@ CARステータス・是正処置状況
       const wavFile = new File([wavBlob], `chunk_${i}.wav`, { type: 'audio/wav' });
       const data = await sendToWhisper(wavFile, oaiKey, lang);
       const timeOffset = i * chunkSec;
-      if (data.segments) {
-        allSegments.push(...data.segments.map(s => ({ ...s, start: s.start + timeOffset, end: s.end + timeOffset })));
-      }
+      if (data.segments) allSegments.push(...data.segments.map(s => ({ ...s, start: s.start + timeOffset, end: s.end + timeOffset })));
       fullText += (fullText ? '\n' : '') + data.text;
       totalDuration += data.duration || 0;
     }
@@ -1127,11 +1052,114 @@ CARステータス・是正処置状況
     return { text: fullText, segments: allSegments, duration: totalDuration };
   }
 
+  // Gemini transcription
+  async function transcribeWithGemini(file, geminiKey, lang) {
+    const MAX_INLINE = 20 * 1024 * 1024;
+    let langInstruction = '';
+    if (!lang || lang === '') {
+      langInstruction = '日本語とタイ語が混在しています。日本語はひらがな・カタカナ・漢字で、タイ語はタイ文字で文字起こしをしてください。';
+    } else if (lang === 'ja') {
+      langInstruction = '音声は日本語です。';
+    } else if (lang === 'th') {
+      langInstruction = '音声はタイ語です。タイ文字で文字起こしをしてください。';
+    } else if (lang === 'en') {
+      langInstruction = 'The audio is in English.';
+    }
+
+    const prompt = `この音声ファイルを正確に文字起こしをしてください。${langInstruction}句読点や改行を適切に入れてください。タイムスタンプは不要です。文字起こしの内容のみを出力してください。`;
+
+    let requestBody;
+
+    if (file.size <= MAX_INLINE) {
+      updateStepSub('step-upload', 'ファイルをエンコード中...');
+      const arrayBuf = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuf);
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+      }
+      const base64 = btoa(binary);
+      const mimeType = file.type || 'audio/webm';
+      requestBody = {
+        contents: [{ parts: [
+          { text: prompt },
+          { inline_data: { mime_type: mimeType, data: base64 } }
+        ]}]
+      };
+    } else {
+      // Gemini File API (resumable upload)
+      updateStepSub('step-upload', '大容量ファイルをアップロード中...');
+      const mimeType = file.type || 'audio/webm';
+      const initRes = await fetch(
+        `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'X-Goog-Upload-Protocol': 'resumable',
+            'X-Goog-Upload-Command': 'start',
+            'X-Goog-Upload-Header-Content-Length': String(file.size),
+            'X-Goog-Upload-Header-Content-Type': mimeType,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ file: { display_name: file.name } })
+        }
+      );
+      if (!initRes.ok) {
+        let m = 'Gemini File APIエラー: ' + initRes.status;
+        try { const e = await initRes.json(); m = e.error?.message || m; } catch {}
+        throw new Error(m);
+      }
+      const uploadUrl = initRes.headers.get('x-goog-upload-url');
+      if (!uploadUrl) throw new Error('Gemini File APIのアップロードURLが取得できませんでした');
+
+      updateStepSub('step-upload', 'ファイル転送中...');
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'X-Goog-Upload-Offset': '0',
+          'X-Goog-Upload-Command': 'upload, finalize',
+          'Content-Type': mimeType
+        },
+        body: file
+      });
+      if (!uploadRes.ok) {
+        let m = 'Geminiアップロードエラー: ' + uploadRes.status;
+        try { const e = await uploadRes.json(); m = e.error?.message || m; } catch {}
+        throw new Error(m);
+      }
+      const uploadData = await uploadRes.json();
+      const fileUri = uploadData.file?.uri;
+      if (!fileUri) throw new Error('Gemini File APIのファイルURIが取得できませんでした');
+
+      requestBody = {
+        contents: [{ parts: [
+          { text: prompt },
+          { file_data: { mime_type: mimeType, file_uri: fileUri } }
+        ]}]
+      };
+    }
+
+    updateStepSub('step-transcribe', 'Gemini APIが音声を解析しています...');
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) }
+    );
+    if (!res.ok) {
+      let m = 'Geminiエラー: ' + res.status;
+      try { const e = await res.json(); m = e.error?.message || m; } catch {}
+      throw new Error(m);
+    }
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const usage = data.usageMetadata || {};
+    return { text, usage };
+  }
+
   function updateStepSub(id, text) {
     document.getElementById(id).querySelector('.step-sub').textContent = text;
   }
 
-  // Timestamp formatting
   function fmtTs(sec) {
     const m = String(Math.floor(sec / 60)).padStart(2, '0');
     const s = String(Math.floor(sec % 60)).padStart(2, '0');
@@ -1143,7 +1171,6 @@ CARステータス・是正処置状況
     return segments.map(s => '[' + fmtTs(s.start) + '] ' + s.text.trim()).join('\n');
   }
 
-  // Sharing
   async function shareResult(id) {
     const text = document.getElementById(id).textContent;
     if (navigator.share) {
@@ -1155,6 +1182,23 @@ CARステータス・是正処置状況
   }
 
   // Cost calculation
+  function calculateCostGemini(geminiUsage, claudeUsage) {
+    const GEMINI_IN = 0.075, GEMINI_OUT = 0.30; // USD per 1M tokens
+    const gemInTokens = geminiUsage?.promptTokenCount || 0;
+    const gemOutTokens = geminiUsage?.candidatesTokenCount || 0;
+    const geminiUSD = (gemInTokens / 1e6) * GEMINI_IN + (gemOutTokens / 1e6) * GEMINI_OUT;
+    // Claude Haiku 4.5: $0.80 input / $4.00 output per 1M tokens
+    const claudeInUSD = ((claudeUsage?.input_tokens || 0) / 1e6) * 0.80;
+    const claudeOutUSD = ((claudeUsage?.output_tokens || 0) / 1e6) * 4.0;
+    const claudeUSD = claudeInUSD + claudeOutUSD;
+    const rate = 150;
+    return {
+      geminiJPY: Math.round(geminiUSD * rate * 10) / 10,
+      claudeJPY: Math.round(claudeUSD * rate * 10) / 10,
+      totalJPY: Math.round((geminiUSD + claudeUSD) * rate * 10) / 10
+    };
+  }
+
   function calculateCost(durationMin, usage) {
     const whisperUSD = durationMin * 0.006;
     const claudeInUSD = (usage.input_tokens / 1000000) * 3.0;
@@ -1167,6 +1211,15 @@ CARステータス・是正処置状況
       claudeJPY: Math.round(claudeUSD * rate * 10) / 10,
       totalJPY: Math.round(totalUSD * rate * 10) / 10
     };
+  }
+
+  function displayCostGemini(cost) {
+    const monthly = getMonthlyCost() + cost.totalJPY;
+    document.getElementById('cost-details').innerHTML =
+      'Gemini: ¥' + cost.geminiJPY + ' · Claude: ¥' + cost.claudeJPY +
+      ' · <span class="cost-total">合計: ¥' + cost.totalJPY + '</span>' +
+      '<span class="cost-monthly">今月の累計: ¥' + (Math.round(monthly * 10) / 10) + '</span>';
+    document.getElementById('cost-display').style.display = 'block';
   }
 
   function displayCost(cost) {
@@ -1193,9 +1246,9 @@ CARステータス・是正処置状況
 
   // Main
   async function start() {
-    const oaiKey = localStorage.getItem('oai_key');
+    const gemKey = localStorage.getItem('gem_key');
     const antKey = localStorage.getItem('ant_key');
-    if (!oaiKey || !antKey || !selectedFile) return;
+    if (!gemKey || !antKey || !selectedFile) return;
 
     hideError();
     document.getElementById('btn-start').disabled = true;
@@ -1210,7 +1263,8 @@ CARステータス・是正処置状況
       let transcript, segments, duration, summary, usage;
 
       if (workerUrl) {
-        // Workerモード: バックグラウンドでも継続可能
+        // Worker mode (uses Whisper via Worker)
+        const oaiKey = localStorage.getItem('oai_key') || '';
         setStep('step-upload', 'active'); setStep('step-transcribe', 'active'); setStep('step-summarize', 'active');
         const form = new FormData();
         form.append('audio', selectedFile);
@@ -1226,13 +1280,30 @@ CARステータス・是正処置状況
         transcript = data.transcript; segments = data.segments; duration = data.duration;
         summary = data.summary; usage = data.usage;
         setStep('step-upload', 'done'); setStep('step-transcribe', 'done'); setStep('step-summarize', 'done');
+
+        const durationMin = (duration || 0) / 60;
+        const cost = calculateCost(durationMin, usage);
+        displayCost(cost);
+        saveMonthlyCost(cost.totalJPY);
+
+        const timestamped = formatTimestampedTranscript(segments);
+        lastTranscriptPlain = transcript;
+        lastTranscriptTimestamped = timestamped;
+        lastDurationMin = durationMin;
+        document.getElementById('transcript-text').textContent = timestamped || transcript;
+        document.getElementById('summary-text').textContent = summary;
+        document.getElementById('results').classList.add('visible');
+        saveHistory({ filename: selectedFile.name, transcript: timestamped || transcript, summary });
+
       } else {
-        // 直接APIモード（従来の動作）
+        // Direct API mode: Gemini transcription
         setStep('step-upload', 'active'); setStep('step-transcribe', 'active');
-        const result = await transcribeAudio(selectedFile, oaiKey, selectedLang);
+        const gemResult = await transcribeWithGemini(selectedFile, gemKey, selectedLang);
         setStep('step-upload', 'done'); setStep('step-transcribe', 'done');
         setStep('step-summarize', 'active');
-        transcript = result.text; segments = result.segments; duration = result.duration;
+
+        transcript = gemResult.text;
+        const geminiUsage = gemResult.usage;
 
         const prompt = TEMPLATES[selectedTemplate] + '\n\n---文字起こし---\n' + transcript;
         const cRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1242,30 +1313,25 @@ CARステータス・是正処置状況
             'content-type': 'application/json',
             'anthropic-dangerous-direct-browser-access': 'true'
           },
-          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 4000, messages: [{ role: 'user', content: prompt }] })
+          body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, messages: [{ role: 'user', content: prompt }] })
         });
         if (!cRes.ok) { let m = 'Claudeエラー: ' + cRes.status; try { const e = await cRes.json(); m = e.error?.message || m; } catch {} throw new Error(m); }
         const cData = await cRes.json();
-        summary = cData.content[0].text; usage = cData.usage;
+        summary = cData.content[0].text;
         setStep('step-summarize', 'done');
+
+        lastTranscriptPlain = transcript;
+        lastTranscriptTimestamped = '';
+        lastDurationMin = 0;
+        document.getElementById('transcript-text').textContent = transcript;
+        document.getElementById('summary-text').textContent = summary;
+        document.getElementById('results').classList.add('visible');
+
+        const cost = calculateCostGemini(geminiUsage, cData.usage);
+        displayCostGemini(cost);
+        saveMonthlyCost(cost.totalJPY);
+        saveHistory({ filename: selectedFile.name, transcript, summary });
       }
-
-      const timestamped = formatTimestampedTranscript(segments);
-      lastTranscriptPlain = transcript;
-      lastTranscriptTimestamped = timestamped;
-      lastDurationMin = (duration || 0) / 60;
-      document.getElementById('transcript-text').textContent = timestamped || transcript;
-      document.getElementById('summary-text').textContent = summary;
-      document.getElementById('results').classList.add('visible');
-
-      // Cost
-      const durationMin = (duration || 0) / 60;
-      const cost = calculateCost(durationMin, usage);
-      displayCost(cost);
-      saveMonthlyCost(cost.totalJPY);
-
-      // Save to history
-      saveHistory({ filename: selectedFile.name, transcript: timestamped || transcript, summary });
 
     } catch(err) {
       ['step-upload','step-transcribe','step-summarize'].forEach(id => {
@@ -1304,8 +1370,7 @@ CARステータス・是正処置状況
     btn.classList.add('active');
     selectedRetemplate = btn.dataset.retemplate;
     const rpBtn = document.getElementById('btn-reprocess');
-    rpBtn.disabled = false;
-    rpBtn.textContent = '🔄 再処理を実行';
+    rpBtn.disabled = false; rpBtn.textContent = '🔄 再処理を実行';
   }
 
   async function reprocess() {
@@ -1320,7 +1385,7 @@ CARステータス・是正処置状況
     try {
       const workerUrl = localStorage.getItem('worker_url');
       const prompt = TEMPLATES[selectedRetemplate] + '\n\n---文字起こし---\n' + lastTranscriptPlain;
-      let summary, usage;
+      let summary, claudeUsage;
 
       if (workerUrl) {
         const res = await fetch(workerUrl + '/summarize', {
@@ -1330,7 +1395,9 @@ CARステータス・是正処置状況
         });
         if (!res.ok) { let m = 'Workerエラー: ' + res.status; try { const e = await res.json(); m = e.error || m; } catch {} throw new Error(m); }
         const data = await res.json();
-        summary = data.summary; usage = data.usage;
+        summary = data.summary; claudeUsage = data.usage;
+        const cost = calculateCost(0, claudeUsage);
+        displayCost(cost); saveMonthlyCost(cost.totalJPY);
       } else {
         const cRes = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
@@ -1339,19 +1406,17 @@ CARステータス・是正処置状況
             'content-type': 'application/json',
             'anthropic-dangerous-direct-browser-access': 'true'
           },
-          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 4000, messages: [{ role: 'user', content: prompt }] })
+          body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, messages: [{ role: 'user', content: prompt }] })
         });
         if (!cRes.ok) { let m = 'Claudeエラー: ' + cRes.status; try { const e = await cRes.json(); m = e.error?.message || m; } catch {} throw new Error(m); }
         const cData = await cRes.json();
-        summary = cData.content[0].text; usage = cData.usage;
+        summary = cData.content[0].text; claudeUsage = cData.usage;
+        const cost = calculateCostGemini({}, claudeUsage);
+        displayCostGemini(cost); saveMonthlyCost(cost.totalJPY);
       }
 
       document.getElementById('summary-text').textContent = summary;
-      const cost = calculateCost(0, usage);
-      displayCost(cost);
-      saveMonthlyCost(cost.totalJPY);
       saveHistory({ filename: (selectedFile?.name || '再処理'), transcript: lastTranscriptTimestamped || lastTranscriptPlain, summary });
-
       rpBtn.textContent = '✓ 完了'; rpBtn.disabled = false;
       setTimeout(() => { rpBtn.textContent = '🔄 再処理を実行'; }, 2000);
     } catch(err) {
@@ -1366,10 +1431,7 @@ CARステータス・是正処置状況
     const date = new Date().toLocaleDateString('ja-JP');
     const filename = selectedFile ? selectedFile.name.replace(/\.[^/.]+$/, '') : '会議';
     const subject = encodeURIComponent('【会議要約】' + filename + '　' + date);
-    const body = encodeURIComponent(
-      '■ 要約\n' + summary +
-      '\n\n──────────────────\n■ 文字起こし原文\n' + transcript
-    );
+    const body = encodeURIComponent('■ 要約\n' + summary + '\n\n──────────────────\n■ 文字起こし原文\n' + transcript);
     window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
   }
 
@@ -1385,7 +1447,7 @@ CARステータス・是正処置状況
   function showError(msg) { const el = document.getElementById('error-box'); el.textContent = '⚠ ' + msg; el.classList.add('visible'); }
   function hideError() { document.getElementById('error-box').classList.remove('visible'); }
 
-  // ---- History ----
+  // History
   function saveHistory(item) {
     const list = getHistory();
     const now = new Date();
@@ -1393,9 +1455,7 @@ CARステータス・是正処置状況
     list.unshift({
       id: Date.now(),
       date: `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`,
-      filename: item.filename,
-      transcript: item.transcript,
-      summary: item.summary
+      filename: item.filename, transcript: item.transcript, summary: item.summary
     });
     if (list.length > 30) list.splice(30);
     localStorage.setItem('meeting_history', JSON.stringify(list));
@@ -1417,10 +1477,7 @@ CARステータス・是正処置状況
   function renderHistory() {
     const list = getHistory();
     const el = document.getElementById('history-list');
-    if (list.length === 0) {
-      el.innerHTML = '<div class="history-empty">まだ履歴がありません</div>';
-      return;
-    }
+    if (list.length === 0) { el.innerHTML = '<div class="history-empty">まだ履歴がありません</div>'; return; }
     el.innerHTML = list.map(item => `
       <div class="history-item" onclick="openHistoryItem(${item.id})">
         <div class="history-item-header">
