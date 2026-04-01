@@ -1425,13 +1425,22 @@ CARステータス・是正処置状況
     }
   }
 
+  function markdownToPlainText(md) {
+    return md
+      .replace(/^###\s+(.+)$/gm, '■ $1')
+      .replace(/^##\s+(.+)$/gm, '【$1】')
+      .replace(/^#\s+(.+)$/gm, '【$1】')
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/^-\s+/gm, '・')
+      .replace(/\n{3,}/g, '\n\n');
+  }
+
   function sendToOutlook() {
     const summary = document.getElementById('summary-text').textContent;
-    const transcript = document.getElementById('transcript-text').textContent;
     const date = new Date().toLocaleDateString('ja-JP');
     const filename = selectedFile ? selectedFile.name.replace(/\.[^/.]+$/, '') : '会議';
     const subject = encodeURIComponent('【会議要約】' + filename + '　' + date);
-    const body = encodeURIComponent('■ 要約\n' + summary + '\n\n──────────────────\n■ 文字起こし原文\n' + transcript);
+    const body = encodeURIComponent(markdownToPlainText(summary));
     window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
   }
 
