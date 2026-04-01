@@ -1225,7 +1225,7 @@ CARステータス・是正処置状況
   function displayCost(cost) {
     const monthly = getMonthlyCost() + cost.totalJPY;
     document.getElementById('cost-details').innerHTML =
-      'Whisper: ¥' + cost.whisperJPY + ' · Claude: ¥' + cost.claudeJPY +
+      'Gemini: ¥' + cost.whisperJPY + ' · Claude: ¥' + cost.claudeJPY +
       ' · <span class="cost-total">合計: ¥' + cost.totalJPY + '</span>' +
       '<span class="cost-monthly">今月の累計: ¥' + (Math.round(monthly * 10) / 10) + '</span>';
     document.getElementById('cost-display').style.display = 'block';
