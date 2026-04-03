@@ -3,5 +3,19 @@ main = "worker.js"
 compatibility_date = "2024-09-23"
 
 # APIキーをWorkerのシークレットとして設定する場合（任意）:
-# wrangler secret put OAI_KEY
-# wrangler secret put ANT_KEY
+# wrangler secret put GEM_KEY   ← Gemini APIキー
+# wrangler secret put ANT_KEY   ← Anthropic APIキー
+
+# ============================================================
+# バックグラウンド処理（iPadを閉じても継続）を有効にするには
+# 以下のKV設定が必要です。
+#
+# セットアップ手順:
+#   1. wrangler kv:namespace create "JOB_STORE"
+#      → 表示された id をコピー
+#   2. 下の id = "" の中に貼り付ける
+#   3. wrangler deploy で再デプロイ
+# ============================================================
+[[kv_namespaces]]
+binding = "KV_JOBS"
+id = "c507b8836e754698853a8246b1535991"

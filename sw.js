@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meeting-transcribe-v1';
+const CACHE_NAME = 'meeting-transcribe-v2';
 const ASSETS = ['./index.html'];
 
 self.addEventListener('install', event => {
@@ -13,6 +13,6 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  if (event.request.url.includes('api.openai.com') || event.request.url.includes('api.anthropic.com')) return;
+  if (event.request.url.includes('generativelanguage.googleapis.com') || event.request.url.includes('api.anthropic.com')) return;
   event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
 });

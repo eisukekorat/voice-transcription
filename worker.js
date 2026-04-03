@@ -1,7 +1,7 @@
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-OAI-Key, X-ANT-Key',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, X-GEM-Key, X-ANT-Key',
 };
 
 const TEMPLATES = {
@@ -172,6 +172,129 @@ CARステータス・是正処置状況
 ・`
 };
 
+// ArrayBuffer を base64 文字列に変換（Cloudflare Workers 対応）
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + chunkSize, bytes.length)));
+  }
+  return btoa(binary);
+}
+
+// Gemini で音声を文字起こし
+async function transcribeWithGemini(audioFile, gemKey, language) {
+  const MAX_INLINE = 20 * 1024 * 1024;
+
+  let langInstruction = '';
+  if (!language || language === '') {
+    langInstruction = '日本語とタイ語が混在しています。日本語はひらがな・カタカナ・漢字で、タイ語はタイ文字で文字起こしをしてください。';
+  } else if (language === 'ja') {
+    langInstruction = '音声は日本語です。';
+  } else if (language === 'th') {
+    langInstruction = '音声はタイ語です。タイ文字で文字起こしをしてください。';
+  } else if (language === 'en') {
+    langInstruction = 'The audio is in English.';
+  }
+
+  const prompt = `この音声ファイルを正確に文字起こしをしてください。${langInstruction}句読点や改行を適切に入れてください。タイムスタンプは不要です。文字起こしの内容のみを出力してください。`;
+  const mimeType = audioFile.type || 'audio/webm';
+
+  let requestBody;
+
+  if (audioFile.size <= MAX_INLINE) {
+    // 小さいファイル: base64 インライン送信
+    const arrayBuf = await audioFile.arrayBuffer();
+    const base64 = arrayBufferToBase64(arrayBuf);
+    requestBody = {
+      contents: [{ parts: [
+        { text: prompt },
+        { inline_data: { mime_type: mimeType, data: base64 } }
+      ]}]
+    };
+  } else {
+    // 大きいファイル: Gemini File API 経由
+    const initRes = await fetch(
+      `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${gemKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'X-Goog-Upload-Protocol': 'resumable',
+          'X-Goog-Upload-Command': 'start',
+          'X-Goog-Upload-Header-Content-Length': String(audioFile.size),
+          'X-Goog-Upload-Header-Content-Type': mimeType,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ file: { display_name: audioFile.name } }),
+      }
+    );
+    if (!initRes.ok) {
+      let m = 'Gemini File APIエラー: ' + initRes.status;
+      try { const e = await initRes.json(); m = e.error?.message || m; } catch {}
+      throw new Error(m);
+    }
+    const uploadUrl = initRes.headers.get('x-goog-upload-url');
+    if (!uploadUrl) throw new Error('Gemini File APIのアップロードURLが取得できませんでした');
+
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'X-Goog-Upload-Offset': '0',
+        'X-Goog-Upload-Command': 'upload, finalize',
+        'Content-Type': mimeType,
+      },
+      body: audioFile,
+    });
+    if (!uploadRes.ok) {
+      let m = 'Geminiアップロードエラー: ' + uploadRes.status;
+      try { const e = await uploadRes.json(); m = e.error?.message || m; } catch {}
+      throw new Error(m);
+    }
+    const uploadData = await uploadRes.json();
+    const fileUri = uploadData.file?.uri;
+    if (!fileUri) throw new Error('Gemini File APIのファイルURIが取得できませんでした');
+
+    // ファイルが ACTIVE になるまで待機（最大 30 秒）
+    let fileState = uploadData.file?.state || 'PROCESSING';
+    if (fileState !== 'ACTIVE') {
+      for (let i = 0; i < 10 && fileState !== 'ACTIVE'; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        const stateRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/files/${uploadData.file.name}?key=${gemKey}`
+        );
+        if (stateRes.ok) {
+          const stateData = await stateRes.json();
+          fileState = stateData.state || fileState;
+        }
+      }
+      if (fileState !== 'ACTIVE') throw new Error('Gemini ファイル処理タイムアウト');
+    }
+
+    requestBody = {
+      contents: [{ parts: [
+        { text: prompt },
+        { file_data: { mime_type: mimeType, file_uri: fileUri } }
+      ]}]
+    };
+  }
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${gemKey}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) }
+  );
+  if (!res.ok) {
+    let m = 'Geminiエラー: ' + res.status;
+    try { const e = await res.json(); m = e.error?.message || m; } catch {}
+    throw new Error(m);
+  }
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const geminiUsage = data.usageMetadata || {};
+  return { text, geminiUsage };
+}
+
+// Claude で要約
 async function callClaude(antKey, prompt) {
   const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -192,85 +315,132 @@ async function callClaude(antKey, prompt) {
     try { const e = await claudeRes.json(); msg = e.error?.message || msg; } catch {}
     throw new Error(msg);
   }
-
   return await claudeRes.json();
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: CORS_HEADERS });
     }
 
     const url = new URL(request.url);
 
+    if (url.pathname === '/submit' && request.method === 'POST') {
+      try { return await handleSubmit(request, env, ctx); }
+      catch (err) { return jsonResponse({ error: err.message }, 500); }
+    }
+
+    if (url.pathname.startsWith('/poll/') && request.method === 'GET') {
+      return handlePoll(url.pathname.slice(6), env);
+    }
+
     if (url.pathname === '/process' && request.method === 'POST') {
-      try {
-        return await handleProcess(request, env);
-      } catch (err) {
-        return jsonResponse({ error: err.message }, 500);
-      }
+      try { return await handleProcess(request, env); }
+      catch (err) { return jsonResponse({ error: err.message }, 500); }
     }
 
     if (url.pathname === '/summarize' && request.method === 'POST') {
-      try {
-        return await handleSummarize(request, env);
-      } catch (err) {
-        return jsonResponse({ error: err.message }, 500);
-      }
+      try { return await handleSummarize(request, env); }
+      catch (err) { return jsonResponse({ error: err.message }, 500); }
     }
 
     return new Response('Not Found', { status: 404 });
   }
 };
 
-async function handleProcess(request, env) {
+// --- ジョブキュー（非同期・バックグラウンド処理） ---
+
+async function handleSubmit(request, env, ctx) {
   const formData = await request.formData();
   const audioFile = formData.get('audio');
   const language = formData.get('language') || '';
   const template = formData.get('template') || 'understand';
 
-  const oaiKey = env.OAI_KEY || request.headers.get('X-OAI-Key');
+  const gemKey = env.GEM_KEY || request.headers.get('X-GEM-Key');
   const antKey = env.ANT_KEY || request.headers.get('X-ANT-Key');
 
-  if (!oaiKey || !antKey) {
-    return jsonResponse({ error: 'APIキーが設定されていません' }, 400);
-  }
-  if (!audioFile) {
-    return jsonResponse({ error: '音声ファイルがありません' }, 400);
-  }
+  if (!gemKey || !antKey) return jsonResponse({ error: 'APIキーが設定されていません' }, 400);
+  if (!audioFile) return jsonResponse({ error: '音声ファイルがありません' }, 400);
 
-  // Step 1: Whisper
-  const whisperForm = new FormData();
-  whisperForm.append('file', audioFile);
-  whisperForm.append('model', 'whisper-1');
-  whisperForm.append('response_format', 'verbose_json');
-  if (language) whisperForm.append('language', language);
-
-  const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + oaiKey },
-    body: whisperForm,
-  });
-
-  if (!whisperRes.ok) {
-    let msg = 'Whisperエラー: ' + whisperRes.status;
-    try { const e = await whisperRes.json(); msg = e.error?.message || msg; } catch {}
-    throw new Error(msg);
+  // KV 未設定時は同期処理にフォールバック
+  if (!env.KV_JOBS) {
+    return handleProcessFromData(audioFile, language, template, gemKey, antKey);
   }
 
-  const whisperData = await whisperRes.json();
+  const jobId = crypto.randomUUID();
+  const audioData = await audioFile.arrayBuffer();
+  const audioBlob = new File([audioData], audioFile.name, { type: audioFile.type || 'audio/webm' });
 
-  // Step 2: Claude
+  await env.KV_JOBS.put(jobId, JSON.stringify({ status: 'processing' }), { expirationTtl: 86400 });
+  ctx.waitUntil(processJobAsync(env, jobId, audioBlob, gemKey, antKey, language, template));
+
+  return jsonResponse({ jobId });
+}
+
+async function processJobAsync(env, jobId, audioFile, gemKey, antKey, language, template) {
+  try {
+    const { text, geminiUsage } = await transcribeWithGemini(audioFile, gemKey, language);
+
+    await env.KV_JOBS.put(jobId, JSON.stringify({
+      status: 'summarizing',
+      transcript: text,
+    }), { expirationTtl: 86400 });
+
+    const promptTemplate = TEMPLATES[template] || TEMPLATES['understand'];
+    const prompt = promptTemplate + '\n\n---文字起こし---\n' + text;
+    const claudeData = await callClaude(antKey, prompt);
+
+    await env.KV_JOBS.put(jobId, JSON.stringify({
+      status: 'done',
+      transcript: text,
+      summary: claudeData.content[0].text,
+      geminiUsage,
+      usage: claudeData.usage,
+    }), { expirationTtl: 86400 });
+
+  } catch (err) {
+    await env.KV_JOBS.put(jobId, JSON.stringify({
+      status: 'error',
+      message: err.message,
+    }), { expirationTtl: 86400 }).catch(() => {});
+  }
+}
+
+async function handlePoll(jobId, env) {
+  if (!env.KV_JOBS) return jsonResponse({ error: 'KVが設定されていません' }, 503);
+  const data = await env.KV_JOBS.get(jobId, 'json');
+  if (!data) return jsonResponse({ error: 'ジョブが見つかりません（期限切れか無効なID）' }, 404);
+  return jsonResponse(data);
+}
+
+// --- レガシー同期処理 ---
+
+async function handleProcess(request, env) {
+  const formData = await request.formData();
+  const audioFile = formData.get('audio');
+  const language = formData.get('language') || '';
+  const template = formData.get('template') || 'understand';
+  const gemKey = env.GEM_KEY || request.headers.get('X-GEM-Key');
+  const antKey = env.ANT_KEY || request.headers.get('X-ANT-Key');
+
+  if (!gemKey || !antKey) return jsonResponse({ error: 'APIキーが設定されていません' }, 400);
+  if (!audioFile) return jsonResponse({ error: '音声ファイルがありません' }, 400);
+
+  return handleProcessFromData(audioFile, language, template, gemKey, antKey);
+}
+
+async function handleProcessFromData(audioFile, language, template, gemKey, antKey) {
+  const { text, geminiUsage } = await transcribeWithGemini(audioFile, gemKey, language);
+
   const promptTemplate = TEMPLATES[template] || TEMPLATES['understand'];
-  const prompt = promptTemplate + '\n\n---文字起こし---\n' + whisperData.text;
+  const prompt = promptTemplate + '\n\n---文字起こし---\n' + text;
   const claudeData = await callClaude(antKey, prompt);
 
   return jsonResponse({
-    transcript: whisperData.text,
-    segments: whisperData.segments || [],
-    duration: whisperData.duration || 0,
+    transcript: text,
     summary: claudeData.content[0].text,
+    geminiUsage,
     usage: claudeData.usage,
   });
 }
@@ -278,23 +448,16 @@ async function handleProcess(request, env) {
 async function handleSummarize(request, env) {
   const body = await request.json();
   const { text, template } = body;
-
   const antKey = env.ANT_KEY || request.headers.get('X-ANT-Key');
-  if (!antKey) {
-    return jsonResponse({ error: 'Anthropic APIキーが設定されていません' }, 400);
-  }
-  if (!text) {
-    return jsonResponse({ error: 'テキストがありません' }, 400);
-  }
+
+  if (!antKey) return jsonResponse({ error: 'Anthropic APIキーが設定されていません' }, 400);
+  if (!text) return jsonResponse({ error: 'テキストがありません' }, 400);
 
   const promptTemplate = TEMPLATES[template] || TEMPLATES['understand'];
   const prompt = promptTemplate + '\n\n---文字起こし---\n' + text;
   const claudeData = await callClaude(antKey, prompt);
 
-  return jsonResponse({
-    summary: claudeData.content[0].text,
-    usage: claudeData.usage,
-  });
+  return jsonResponse({ summary: claudeData.content[0].text, usage: claudeData.usage });
 }
 
 function jsonResponse(data, status = 200) {

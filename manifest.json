@@ -3,7 +3,7 @@
   "short_name": "議事録",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0a0a0f",
-  "theme_color": "#6c63ff",
+  "background_color": "#f2f2f7",
+  "theme_color": "#ffffff",
   "description": "会議の文字起こしと要約アプリ"
 }

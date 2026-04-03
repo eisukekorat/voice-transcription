@@ -301,7 +301,7 @@
     <!-- File -->
     <div id="panel-file">
       <div class="upload-area" id="upload-area">
-        <input type="file" id="file-input" accept="*/*" onchange="onFile(event)" />
+        <input type="file" id="file-input" accept="audio/*,video/*" onchange="onFile(event)" />
         <span class="upload-icon">🎵</span>
         <h3>タップしてファイルを選択</h3>
         <p>m4a · mp3 · wav · mp4 など対応</p>
@@ -453,14 +453,6 @@
     </div>
     <div class="modal-divider"></div>
     <div class="modal-section">
-      <div class="modal-label">OpenAI API Key（任意・Whisper用）</div>
-      <div class="key-row">
-        <input type="password" class="key-input" id="oai-key" placeholder="sk-..." />
-        <button class="btn-save" onclick="saveKey('oai')">保存</button>
-      </div>
-      <div class="key-status" id="oai-status">未設定</div>
-    </div>
-    <div class="modal-section">
       <div class="modal-label">☁️ Cloudflare Worker URL（任意・推奨）</div>
       <div class="key-row">
         <input type="text" class="key-input" id="worker-url" placeholder="https://voice-transcription.YOUR_NAME.workers.dev" style="font-size:12px" />
@@ -500,8 +492,6 @@
   let selectedLang = '';
   let selectedTemplate = 'understand';
   let lastTranscriptPlain = '';
-  let lastTranscriptTimestamped = '';
-  let lastDurationMin = 0;
   let mediaRecorder = null;
   let audioChunks = [];
   let timerInterval = null;
@@ -694,7 +684,7 @@ CARステータス・是正処置状況
   window.addEventListener('load', () => {
     const wUrl = localStorage.getItem('worker_url');
     if (wUrl) { document.getElementById('worker-url').value = wUrl; setWorkerStatus(wUrl); updateKeyNotice(true); }
-    ['gem', 'ant', 'oai'].forEach(k => {
+    ['gem', 'ant'].forEach(k => {
       const v = localStorage.getItem(k + '_key');
       if (v) { document.getElementById(k + '-key').value = v; setStatus(k, true); }
     });
@@ -706,6 +696,7 @@ CARステータス・是正処置状況
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }
+    resumePendingJob();
   });
 
   // Settings modal
@@ -773,7 +764,7 @@ CARステータス・是正処置状況
 
   // Template
   function setTemplate(btn) {
-    document.querySelectorAll('.tmpl-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.card > .btn-group > .tmpl-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     selectedTemplate = btn.dataset.template;
   }
@@ -801,7 +792,15 @@ CARステータス・是正処置状況
     }
     hideError();
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: { ideal: 44100 },
+          channelCount: { ideal: 1 },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }
+      });
       audioChunks = []; recordedSize = 0; savedChunks = [];
       mediaRecorder = new MediaRecorder(stream, { audioBitsPerSecond: 128000 });
       mediaRecorder.ondataavailable = e => {
@@ -908,7 +907,15 @@ CARステータス・是正処置状況
   async function resumeRecord() {
     hideError();
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: { ideal: 44100 },
+          channelCount: { ideal: 1 },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }
+      });
       audioChunks = [];
       mediaRecorder = new MediaRecorder(stream, { audioBitsPerSecond: 128000 });
       mediaRecorder.ondataavailable = e => {
@@ -981,75 +988,6 @@ CARステータス・是正処置状況
     const gem = localStorage.getItem('gem_key');
     const ant = localStorage.getItem('ant_key');
     document.getElementById('btn-start').disabled = !(gem && ant && selectedFile);
-  }
-
-  // WAV encoder (kept for Whisper/fallback use)
-  function writeWavString(view, offset, str) {
-    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
-  }
-  function encodeWAV(samples, sampleRate) {
-    const buf = new ArrayBuffer(44 + samples.length * 2);
-    const v = new DataView(buf);
-    writeWavString(v, 0, 'RIFF'); v.setUint32(4, 36 + samples.length * 2, true);
-    writeWavString(v, 8, 'WAVE'); writeWavString(v, 12, 'fmt ');
-    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
-    v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true);
-    v.setUint16(32, 2, true); v.setUint16(34, 16, true);
-    writeWavString(v, 36, 'data'); v.setUint32(40, samples.length * 2, true);
-    for (let i = 0; i < samples.length; i++) {
-      const s = Math.max(-1, Math.min(1, samples[i]));
-      v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-    }
-    return new Blob([buf], { type: 'audio/wav' });
-  }
-
-  async function sendToWhisper(file, oaiKey, lang) {
-    const formData = new FormData();
-    formData.append('file', file); formData.append('model', 'whisper-1');
-    if (lang) formData.append('language', lang);
-    formData.append('response_format', 'verbose_json');
-    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST', headers: { 'Authorization': 'Bearer ' + oaiKey }, body: formData
-    });
-    if (!res.ok) { let m = 'Whisperエラー: ' + res.status; try { const e = await res.json(); m = e.error?.message || m; } catch {} throw new Error(m); }
-    return await res.json();
-  }
-
-  async function transcribeAudio(file, oaiKey, lang) {
-    const MAX_SIZE = 24 * 1024 * 1024;
-    if (file.size <= MAX_SIZE) {
-      const data = await sendToWhisper(file, oaiKey, lang);
-      return { text: data.text, segments: data.segments || [], duration: data.duration || 0 };
-    }
-    updateStepSub('step-transcribe', '音声ファイルを分割処理しています...');
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const arrayBuf = await file.arrayBuffer();
-    const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
-    const targetRate = 16000, chunkSec = 480;
-    const duration = audioBuf.duration;
-    const numChunks = Math.ceil(duration / chunkSec);
-    const srcData = audioBuf.getChannelData(0);
-    const ratio = audioBuf.sampleRate / targetRate;
-    const totalSamples = Math.floor(srcData.length / ratio);
-    let fullText = '', allSegments = [], totalDuration = 0;
-    for (let i = 0; i < numChunks; i++) {
-      updateStepSub('step-transcribe', `分割 ${i + 1}/${numChunks} を文字起こし中...`);
-      const startS = Math.floor(i * chunkSec * targetRate);
-      const endS = Math.min(Math.floor((i + 1) * chunkSec * targetRate), totalSamples);
-      const chunk = new Float32Array(endS - startS);
-      for (let j = 0; j < chunk.length; j++) {
-        chunk[j] = srcData[Math.min(Math.floor((startS + j) * ratio), srcData.length - 1)];
-      }
-      const wavBlob = encodeWAV(chunk, targetRate);
-      const wavFile = new File([wavBlob], `chunk_${i}.wav`, { type: 'audio/wav' });
-      const data = await sendToWhisper(wavFile, oaiKey, lang);
-      const timeOffset = i * chunkSec;
-      if (data.segments) allSegments.push(...data.segments.map(s => ({ ...s, start: s.start + timeOffset, end: s.end + timeOffset })));
-      fullText += (fullText ? '\n' : '') + data.text;
-      totalDuration += data.duration || 0;
-    }
-    audioCtx.close();
-    return { text: fullText, segments: allSegments, duration: totalDuration };
   }
 
   // Gemini transcription
@@ -1160,17 +1098,6 @@ CARステータス・是正処置状況
     document.getElementById(id).querySelector('.step-sub').textContent = text;
   }
 
-  function fmtTs(sec) {
-    const m = String(Math.floor(sec / 60)).padStart(2, '0');
-    const s = String(Math.floor(sec % 60)).padStart(2, '0');
-    return m + ':' + s;
-  }
-
-  function formatTimestampedTranscript(segments) {
-    if (!segments || segments.length === 0) return '';
-    return segments.map(s => '[' + fmtTs(s.start) + '] ' + s.text.trim()).join('\n');
-  }
-
   async function shareResult(id) {
     const text = document.getElementById(id).textContent;
     if (navigator.share) {
@@ -1199,33 +1126,10 @@ CARステータス・是正処置状況
     };
   }
 
-  function calculateCost(durationMin, usage) {
-    const whisperUSD = durationMin * 0.006;
-    const claudeInUSD = (usage.input_tokens / 1000000) * 3.0;
-    const claudeOutUSD = (usage.output_tokens / 1000000) * 15.0;
-    const claudeUSD = claudeInUSD + claudeOutUSD;
-    const totalUSD = whisperUSD + claudeUSD;
-    const rate = 150;
-    return {
-      whisperJPY: Math.round(whisperUSD * rate * 10) / 10,
-      claudeJPY: Math.round(claudeUSD * rate * 10) / 10,
-      totalJPY: Math.round(totalUSD * rate * 10) / 10
-    };
-  }
-
   function displayCostGemini(cost) {
     const monthly = getMonthlyCost() + cost.totalJPY;
     document.getElementById('cost-details').innerHTML =
       'Gemini: ¥' + cost.geminiJPY + ' · Claude: ¥' + cost.claudeJPY +
-      ' · <span class="cost-total">合計: ¥' + cost.totalJPY + '</span>' +
-      '<span class="cost-monthly">今月の累計: ¥' + (Math.round(monthly * 10) / 10) + '</span>';
-    document.getElementById('cost-display').style.display = 'block';
-  }
-
-  function displayCost(cost) {
-    const monthly = getMonthlyCost() + cost.totalJPY;
-    document.getElementById('cost-details').innerHTML =
-      'Gemini: ¥' + cost.whisperJPY + ' · Claude: ¥' + cost.claudeJPY +
       ' · <span class="cost-total">合計: ¥' + cost.totalJPY + '</span>' +
       '<span class="cost-monthly">今月の累計: ¥' + (Math.round(monthly * 10) / 10) + '</span>';
     document.getElementById('cost-display').style.display = 'block';
@@ -1260,40 +1164,57 @@ CARステータス・是正処置状況
     const workerUrl = localStorage.getItem('worker_url');
 
     try {
-      let transcript, segments, duration, summary, usage;
+      let transcript, segments, summary, usage;
 
       if (workerUrl) {
-        // Worker mode (uses Whisper via Worker)
-        const oaiKey = localStorage.getItem('oai_key') || '';
-        setStep('step-upload', 'active'); setStep('step-transcribe', 'active'); setStep('step-summarize', 'active');
+        // Worker mode (Gemini + Claude via Cloudflare Worker)
+        document.querySelector('#step-upload .step-label').textContent = 'Workerへ送信中';
+        document.querySelector('#step-upload .step-sub').textContent = '音声ファイルをWorkerへアップロードしています';
+        document.querySelector('#step-transcribe .step-sub').textContent = 'Gemini APIが音声を解析しています';
+        setStep('step-upload', 'active');
+
         const form = new FormData();
         form.append('audio', selectedFile);
         form.append('language', selectedLang);
         form.append('template', selectedTemplate);
-        const wRes = await fetch(workerUrl + '/process', {
+
+        // /submit を試みる（KV対応の非同期モード）
+        const submitRes = await fetch(workerUrl + '/submit', {
           method: 'POST',
-          headers: { 'X-OAI-Key': oaiKey, 'X-ANT-Key': antKey },
+          headers: { 'X-GEM-Key': gemKey, 'X-ANT-Key': antKey },
           body: form,
         });
-        if (!wRes.ok) { let m = 'Workerエラー: ' + wRes.status; try { const e = await wRes.json(); m = e.error || m; } catch {} throw new Error(m); }
-        const data = await wRes.json();
-        transcript = data.transcript; segments = data.segments; duration = data.duration;
-        summary = data.summary; usage = data.usage;
-        setStep('step-upload', 'done'); setStep('step-transcribe', 'done'); setStep('step-summarize', 'done');
+        if (!submitRes.ok) { let m = 'Workerエラー: ' + submitRes.status; try { const e = await submitRes.json(); m = e.error || m; } catch {} throw new Error(m); }
+        const submitData = await submitRes.json();
 
-        const durationMin = (duration || 0) / 60;
-        const cost = calculateCost(durationMin, usage);
-        displayCost(cost);
+        let data;
+        if (submitData.jobId) {
+          // 非同期モード: ポーリングで結果を待つ
+          setStep('step-upload', 'done');
+          setStep('step-transcribe', 'active');
+          localStorage.setItem('pending_job', JSON.stringify({
+            jobId: submitData.jobId, workerUrl, filename: selectedFile.name
+          }));
+          data = await pollJobResult(submitData.jobId, workerUrl);
+          localStorage.removeItem('pending_job');
+        } else {
+          // 同期モード（KV未設定時のフォールバック）: 結果が直接返ってくる
+          setStep('step-upload', 'done'); setStep('step-transcribe', 'done'); setStep('step-summarize', 'done');
+          data = submitData;
+        }
+
+        transcript = data.transcript; segments = data.segments || [];
+        summary = data.summary; usage = data.usage;
+
+        const cost = calculateCostGemini(data.geminiUsage || {}, usage);
+        displayCostGemini(cost);
         saveMonthlyCost(cost.totalJPY);
 
-        const timestamped = formatTimestampedTranscript(segments);
         lastTranscriptPlain = transcript;
-        lastTranscriptTimestamped = timestamped;
-        lastDurationMin = durationMin;
-        document.getElementById('transcript-text').textContent = timestamped || transcript;
+        document.getElementById('transcript-text').textContent = transcript;
         document.getElementById('summary-text').textContent = summary;
         document.getElementById('results').classList.add('visible');
-        saveHistory({ filename: selectedFile.name, transcript: timestamped || transcript, summary });
+        saveHistory({ filename: selectedFile.name, transcript, summary });
 
       } else {
         // Direct API mode: Gemini transcription
@@ -1321,8 +1242,6 @@ CARステータス・是正処置状況
         setStep('step-summarize', 'done');
 
         lastTranscriptPlain = transcript;
-        lastTranscriptTimestamped = '';
-        lastDurationMin = 0;
         document.getElementById('transcript-text').textContent = transcript;
         document.getElementById('summary-text').textContent = summary;
         document.getElementById('results').classList.add('visible');
@@ -1337,6 +1256,87 @@ CARステータス・是正処置状況
       ['step-upload','step-transcribe','step-summarize'].forEach(id => {
         if (document.getElementById(id).classList.contains('active')) setStep(id, 'error');
       });
+      showError(err.message);
+    } finally {
+      document.getElementById('btn-start').disabled = false;
+      releaseWakeLock();
+    }
+  }
+
+  // ジョブポーリング
+  let pollingTimer = null;
+
+  function pollJobResult(jobId, workerUrl) {
+    return new Promise((resolve, reject) => {
+      const MAX_POLL = 5 * 60 * 1000;
+      const startTime = Date.now();
+      pollingTimer = setInterval(async () => {
+        if (Date.now() - startTime > MAX_POLL) {
+          clearInterval(pollingTimer); pollingTimer = null;
+          reject(new Error('処理がタイムアウトしました（5分）。ページを再読み込みして再試行してください。'));
+          return;
+        }
+        try {
+          const res = await fetch(workerUrl + '/poll/' + jobId);
+          if (res.status === 404) {
+            clearInterval(pollingTimer); pollingTimer = null;
+            reject(new Error('ジョブが見つかりません。Workerの処理がタイムアウトした可能性があります。'));
+            return;
+          }
+          if (!res.ok) return; // ネットワーク一時エラーは無視して再試行
+          const data = await res.json();
+
+          if (data.status === 'summarizing') {
+            setStep('step-transcribe', 'done');
+            setStep('step-summarize', 'active');
+          } else if (data.status === 'done') {
+            clearInterval(pollingTimer); pollingTimer = null;
+            setStep('step-transcribe', 'done');
+            setStep('step-summarize', 'done');
+            resolve(data);
+          } else if (data.status === 'error') {
+            clearInterval(pollingTimer); pollingTimer = null;
+            reject(new Error(data.message || 'Worker処理エラー'));
+          }
+          // processing中はそのまま待機
+        } catch (e) {
+          // オフライン等の一時的エラーは無視して再試行
+        }
+      }, 3000);
+    });
+  }
+
+  // ページ再表示時に未完了ジョブがあれば復帰
+  async function resumePendingJob() {
+    const raw = localStorage.getItem('pending_job');
+    if (!raw) return;
+    let job;
+    try { job = JSON.parse(raw); } catch { localStorage.removeItem('pending_job'); return; }
+
+    const antKey = localStorage.getItem('ant_key') || '';
+    document.getElementById('btn-start').disabled = true;
+    document.getElementById('steps').classList.add('visible');
+    document.getElementById('results').classList.remove('visible');
+    document.getElementById('cost-display').style.display = 'none';
+    resetSteps();
+    document.querySelector('#step-upload .step-label').textContent = 'Workerへ送信中';
+    document.querySelector('#step-upload .step-sub').textContent = '前回の処理を再確認しています...';
+    document.querySelector('#step-transcribe .step-sub').textContent = 'Gemini APIが音声を解析しています';
+    setStep('step-upload', 'done');
+    setStep('step-transcribe', 'active');
+
+    try {
+      const data = await pollJobResult(job.jobId, job.workerUrl);
+      localStorage.removeItem('pending_job');
+      const cost = calculateCostGemini(data.geminiUsage || {}, data.usage);
+      displayCostGemini(cost); saveMonthlyCost(cost.totalJPY);
+      lastTranscriptPlain = data.transcript;
+      document.getElementById('transcript-text').textContent = data.transcript;
+      document.getElementById('summary-text').textContent = data.summary;
+      document.getElementById('results').classList.add('visible');
+      saveHistory({ filename: job.filename || 'recording', transcript: data.transcript, summary: data.summary });
+    } catch (err) {
+      localStorage.removeItem('pending_job');
       showError(err.message);
     } finally {
       document.getElementById('btn-start').disabled = false;
@@ -1396,8 +1396,8 @@ CARステータス・是正処置状況
         if (!res.ok) { let m = 'Workerエラー: ' + res.status; try { const e = await res.json(); m = e.error || m; } catch {} throw new Error(m); }
         const data = await res.json();
         summary = data.summary; claudeUsage = data.usage;
-        const cost = calculateCost(0, claudeUsage);
-        displayCost(cost); saveMonthlyCost(cost.totalJPY);
+        const cost = calculateCostGemini({}, claudeUsage);
+        displayCostGemini(cost); saveMonthlyCost(cost.totalJPY);
       } else {
         const cRes = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
@@ -1416,7 +1416,7 @@ CARステータス・是正処置状況
       }
 
       document.getElementById('summary-text').textContent = summary;
-      saveHistory({ filename: (selectedFile?.name || '再処理'), transcript: lastTranscriptTimestamped || lastTranscriptPlain, summary });
+      saveHistory({ filename: (selectedFile?.name || '再処理'), transcript: lastTranscriptPlain, summary });
       rpBtn.textContent = '✓ 完了'; rpBtn.disabled = false;
       setTimeout(() => { rpBtn.textContent = '🔄 再処理を実行'; }, 2000);
     } catch(err) {
@@ -1457,6 +1457,10 @@ CARステータス・是正処置状況
   function hideError() { document.getElementById('error-box').classList.remove('visible'); }
 
   // History
+  function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   function saveHistory(item) {
     const list = getHistory();
     const now = new Date();
@@ -1490,13 +1494,13 @@ CARステータス・是正処置状況
     el.innerHTML = list.map(item => `
       <div class="history-item" onclick="openHistoryItem(${item.id})">
         <div class="history-item-header">
-          <span class="history-date">${item.date}</span>
+          <span class="history-date">${escapeHtml(item.date)}</span>
           <div style="display:flex;align-items:center;gap:8px">
-            <span class="history-file">${item.filename}</span>
+            <span class="history-file">${escapeHtml(item.filename)}</span>
             <button class="btn-history-delete" onclick="deleteHistory(event,${item.id})">✕</button>
           </div>
         </div>
-        <div class="history-preview">${item.summary.slice(0,80)}...</div>
+        <div class="history-preview">${escapeHtml(item.summary.slice(0,80))}...</div>
       </div>
     `).join('');
   }
